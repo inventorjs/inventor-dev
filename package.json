@@ -1,6 +1,6 @@
 {
   "name": "inventor-dev",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -47,6 +47,7 @@
     "style-loader": "^0.19.1",
     "url-loader": "^0.6.2",
     "webpack": "^4.10.2",
+    "webpack-cli": "^3.0.1",
     "webpack-dev-server": "^3.1.4"
   },
   "devDependencies": {}
