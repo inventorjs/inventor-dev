@@ -1,6 +1,6 @@
 {
   "name": "inventor-dev",
-  "version": "0.0.5",
+  "version": "0.0.8",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -48,7 +48,8 @@
     "url-loader": "^0.6.2",
     "webpack": "^4.10.2",
     "webpack-cli": "^3.0.1",
-    "webpack-dev-server": "^3.1.4"
+    "webpack-dev-server": "^3.1.4",
+    "webpack-plugin-hash-output": "^3.1.0"
   },
   "devDependencies": {}
 }

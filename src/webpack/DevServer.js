@@ -49,6 +49,6 @@ export default class DevServer {
         if (!this._serverConfig || !this._serverConfig.port || !this._serverConfig.host) {
             throw new Error('devServer "serverConfig" must have valid host and port')
         }
-        this._server.listen(this._serverConfig.port, this._serverConfig.host)
+        this._server.listen(this._serverConfig.port)
     }
 }

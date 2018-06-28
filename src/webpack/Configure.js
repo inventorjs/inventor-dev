@@ -31,7 +31,6 @@ export default class WebpackConfigure {
         'query-string',
         'lodash',
         'moment',
-        'immutable',
         'axios',
         'react',
         'react-dom',
@@ -221,9 +220,7 @@ export default class WebpackConfigure {
             )
 
             webpackConfig.plugins.push(new HashOutput())
-        } else {
-            webpackConfig.devtool = 'cheap-module-eval-source-map'
-            webpackConfig.plugins.push(new webpack.HotModuleReplacementPlugin())
+
             webpackConfig.plugins.push(
                 new FileManagerPlugin({
                     onEnd: {
@@ -231,6 +228,9 @@ export default class WebpackConfigure {
                     },
                 })
             )
+        } else {
+            webpackConfig.devtool = 'cheap-module-eval-source-map'
+            webpackConfig.plugins.push(new webpack.HotModuleReplacementPlugin())
         }
 
         return webpackConfig
