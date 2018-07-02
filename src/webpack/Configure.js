@@ -92,6 +92,17 @@ export default class WebpackConfigure {
             module: {
                 rules: [
                     {
+                        test: /package\.json$/,
+                        use: [
+                            {
+                                loader: 'package-json-cleanup-loader',
+                                options: {
+                                    only: [ 'name', 'version' ],
+                                },
+                            },
+                        ],
+                    },
+                    {
                         test: /\.jsx?$/,
                         use: [
                             'happypack/loader?id=babel',
