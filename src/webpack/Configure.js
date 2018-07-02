@@ -228,6 +228,14 @@ export default class WebpackConfigure {
                     },
                 })
             )
+
+            webpackConfig.plugins.push(
+                new webpack.HashedModuleIdsPlugin({
+                    hashFunction: 'md5',
+                    hashDigest: 'hex',
+                    hashDigestLength: 16,
+                })
+            )
         } else {
             webpackConfig.devtool = 'cheap-module-eval-source-map'
             webpackConfig.plugins.push(new webpack.HotModuleReplacementPlugin())
