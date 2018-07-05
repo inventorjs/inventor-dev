@@ -92,6 +92,17 @@ export default class WebpackConfigure {
             module: {
                 rules: [
                     {
+                        test: /package\.json$/,
+                        use: [
+                            {
+                                loader: 'package-json-cleanup-loader',
+                                options: {
+                                    only: [ 'name', 'version' ],
+                                },
+                            },
+                        ],
+                    },
+                    {
                         test: /\.jsx?$/,
                         use: [
                             'happypack/loader?id=babel',
@@ -223,6 +234,14 @@ export default class WebpackConfigure {
                     onEnd: {
                         delete: [ this._vendorEntryPath ],
                     },
+                })
+            )
+
+            webpackConfig.plugins.push(
+                new webpack.HashedModuleIdsPlugin({
+                    hashFunction: 'md5',
+                    hashDigest: 'hex',
+                    hashDigestLength: 16,
                 })
             )
         } else {
