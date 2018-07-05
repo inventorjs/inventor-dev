@@ -117,8 +117,8 @@ export default class WebpackConfigure {
                         }),
                     },
                     {
-                        test: /\.scss$/,
-                        exclude: /(node_modules|vendor)/,
+                        test: /\.css$/,
+                        exclude: /(vendor|node_module)/,
                         use: ExtractTextPlugin.extract({
                             fallback: 'style-loader',
                             use: [
@@ -136,9 +136,6 @@ export default class WebpackConfigure {
                                             autoprefixer,
                                         ],
                                     },
-                                },
-                                {
-                                    loader: 'sass-loader',
                                 },
                             ],
                         }),
