@@ -64,6 +64,10 @@ export default class WebpackConfigure {
         return `${this._basePath}/shared`
     }
 
+    get webpackPath() {
+        return `${this._basePath}/webpack`
+    }
+
     get configPath() {
         return `${this.webPath}/config`
     }
@@ -261,6 +265,9 @@ export default class WebpackConfigure {
         const importVendors = _.map(vendors, (vendor) => `import "${vendor}"`).join('\n')
         tplContent = tplContent.replace(/<-appName->/g, appName)
                                .replace(/<-importExtra->/g, importExtra)
+                               .replace(/<-sharedPath->/g, this.sharedPath)
+                               .replace(/<-webPath->/g, this.webPath)
+                               .replace(/<-webpackPath->/g, this.webpackPath)
 
         fs.writeFileSync(this._vendorEntryPath, importVendors)
         fs.writeFileSync(entryPath, tplContent)
