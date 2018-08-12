@@ -141,7 +141,7 @@ export default class WebpackConfigure {
                                     loader: 'css-loader',
                                     query: {
                                         module: true,
-                                        localIdentName: '[name]__[local]--[hash:base64:5]',
+                                        localIdentName: '[path][name]__[local]',
                                     }
                                 },
                                 {
