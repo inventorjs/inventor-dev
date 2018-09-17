@@ -20,36 +20,21 @@ import HashOutput from 'webpack-plugin-hash-output'
 
 const happyThreadPool = HappyPack.ThreadPool({ size: os.cpus().length })
 
+const allChunks = []
+
 export default class WebpackConfigure {
     _basePath = ''
     _buildMode = ''
     _publicPath = ''
     _vendorEntryPath = ''
+    _appName = ''
 
-    _defaultVendor = [
-        'babel-polyfill',
-        'query-string',
-        'lodash',
-        'moment',
-        'axios',
-        'react',
-        'react-dom',
-        'react-router',
-        'react-router-config',
-        'react-router-dom',
-        'react-router-redux',
-        'redux',
-        'react-redux',
-        'core-decorators',
-        'inventor/web',
-        'inventor/shared',
-    ]
-
-    constructor({ basePath, publicPath, buildMode='release' }) {
+    constructor({ basePath, publicPath, buildMode='release', appName='' }) {
         this._basePath = basePath
         this._buildMode = buildMode === 'release' ? 'release' : 'debug'
         this._publicPath = publicPath + '/'
         this._vendorEntryPath = path.resolve(this.webPath, 'vendor/__vendor.js')
+        this._appName = appName
     }
 
     get webPath() {
@@ -83,9 +68,10 @@ export default class WebpackConfigure {
     _template() {
         const outputPath = `${this.buildPath}/web/${this.buildMode}`
         const appConfig = this._getAppsConfig()
+        const vendorConfig = require(`${this.configPath}/vendor`).default
 
         let webpackConfig = {
-            mode: this._ifRelease('production', 'development'),
+            mode: this._ifRelease('development', 'development'),
             name: 'inventor',
             entry: appConfig.entry,
             output: {
@@ -175,15 +161,26 @@ export default class WebpackConfigure {
                         default: false,
                         common: {
                             chunks: 'all',
-                            test: /[\\/]shared[\\/]common[\\/]/,
+                            test: (module, chunks) => {
+                                if (!!_.startsWith(module.context, `${this.sharedPath}/common`)) {
+                                    return true
+                                }
+                                return false
+                            },
                             name: 'common/common',
-                            priority: 99,
+                            priority: -1,
                         },
                         vendor: {
                             chunks: 'all',
-                            test: /[\\/]node_modules[\\/]|[\\/]vendor[\\/]/,
+                            test: (module, chunks) => {
+                                if (!!_.startsWith(module.context, `${this._basePath}/node_modules`)
+                                    || _.startsWith(module.context, `${this.webPath}/vendor`)) {
+                                    return true
+                                }
+                                return false
+                            },
                             name: 'vendor/vendor',
-                            priority: 100,
+                            priority: -2,
                         },
                     },
                 },
@@ -234,14 +231,6 @@ export default class WebpackConfigure {
             webpackConfig.plugins.push(new HashOutput())
 
             webpackConfig.plugins.push(
-                new FileManagerPlugin({
-                    onEnd: {
-                        delete: [ this._vendorEntryPath ],
-                    },
-                })
-            )
-
-            webpackConfig.plugins.push(
                 new webpack.HashedModuleIdsPlugin({
                     hashFunction: 'md5',
                     hashDigest: 'hex',
@@ -256,32 +245,36 @@ export default class WebpackConfigure {
         return webpackConfig
     }
 
-    _createEntryFile(appName, appConfig, entryPath) {
+    _createEntryFile(appName, entryPath) {
         const vendorConfig = require(`${this.configPath}/vendor`).default
-        const vendors = _.uniq(this._defaultVendor.concat(vendorConfig.items))
+        const commonConfig = require(`${this.configPath}/common`).default
+        const appsConfig = require(`${this.configPath}/apps`).default
+        const appConfig = _.get(appsConfig, appName, {})
 
         let tplContent = fs.readFileSync(path.resolve(__dirname, 'entry.tpl'), 'utf-8')
-        const importExtra = _.map(appConfig.importExtra, (item, index) => `import '${item}'`).join('\n')
-        const importVendors = _.map(vendors, (vendor) => `import "${vendor}"`).join('\n')
+
+        const vendorImportExtra = _.map(vendorConfig.importExtra, (item, index) => `import '${item}'`)
+        const commonImportExtra = _.map(commonConfig.importExtra, (item, index) => `import '${item}'`)
+        const appImportExtra = _.map(appConfig.importExtra, (item, index) => `import '${item}'`)
+        const importExtra = _.uniq(vendorImportExtra.concat(commonImportExtra).concat(appImportExtra)).join('\n')
+
         tplContent = tplContent.replace(/<-appName->/g, appName)
                                .replace(/<-importExtra->/g, importExtra)
                                .replace(/<-sharedPath->/g, this.sharedPath)
                                .replace(/<-webPath->/g, this.webPath)
                                .replace(/<-webpackPath->/g, this.webpackPath)
 
-        fs.writeFileSync(this._vendorEntryPath, importVendors)
         fs.writeFileSync(entryPath, tplContent)
     }
 
     _getAppsConfig() {
         const appsConfig = require(`${this.configPath}/apps`).default
+        const apps = !!this._appName ? [this._appName] : _.keys(appsConfig)
         let entry = {}
         let plugins = []
         let output = []
-        for (let appName in appsConfig) {
-            if (!appsConfig[appName].build) {
-                continue
-            }
+
+        _.each(apps, (appName) => {
             const config = _.extend({}, appsConfig.common, appsConfig[appName])
             const outputName = `apps/${appName}/index`
             const entryPath = path.resolve(this.webPath, `apps/__${appName}.js`)
@@ -296,20 +289,10 @@ export default class WebpackConfigure {
                 }),
             )
 
-            if (this._ifRelease('release', 'debug') === 'release') {
-                plugins.push(
-                    new FileManagerPlugin({
-                        onEnd: {
-                            delete: [ entryPath ],
-                        },
-                    })
-                )
-            }
-
             output.push(`apps/${appName}/`)
 
-            this._createEntryFile(appName, config, entryPath)
-        }
+            this._createEntryFile(appName, entryPath)
+        })
 
         return {
             entry,

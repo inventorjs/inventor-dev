@@ -4,8 +4,6 @@
  * @author : sunkeysun
  */
 
-import '<-webPath->/vendor/__vendor'
-
 <-importExtra->
 
 import Kernel from 'inventor/web'
