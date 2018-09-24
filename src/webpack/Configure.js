@@ -71,7 +71,7 @@ export default class WebpackConfigure {
         const vendorConfig = require(`${this.configPath}/vendor`).default
 
         let webpackConfig = {
-            mode: this._ifRelease('development', 'development'),
+            mode: this._ifRelease('production', 'development'),
             name: 'inventor',
             entry: appConfig.entry,
             output: {
