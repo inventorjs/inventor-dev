@@ -12,7 +12,6 @@ import webpack from 'webpack'
 import HtmlWebpackPlugin from 'html-webpack-plugin'
 import CleanWebpackPlugin from 'clean-webpack-plugin'
 import ExtractTextPlugin from 'extract-text-webpack-plugin'
-import FileManagerPlugin from 'filemanager-webpack-plugin'
 import autoprefixer from 'autoprefixer'
 import ProgressBarPlugin from 'progress-bar-webpack-plugin'
 import HappyPack from 'happypack'
@@ -26,57 +25,84 @@ export default class WebpackConfigure {
     _basePath = ''
     _buildMode = ''
     _publicPath = ''
-    _vendorEntryPath = ''
     _appName = ''
 
-    constructor({ basePath, publicPath, buildMode='release', appName='' }) {
+    constructor({ basePath, publicPath, buildMode='release' }) {
         this._basePath = basePath
         this._buildMode = buildMode === 'release' ? 'release' : 'debug'
         this._publicPath = publicPath + '/'
-        this._vendorEntryPath = path.resolve(this.webPath, 'vendor/__vendor.js')
-        this._appName = appName
+        this._exposeRoot = '__LIBS__'
     }
 
-    get webPath() {
+    get _webPath() {
         return `${this._basePath}/web`
     }
 
-    get buildPath() {
+    get _buildPath() {
         return `${this._basePath}/build`
     }
 
-    get sharedPath() {
+    get _sharedPath() {
         return `${this._basePath}/shared`
     }
 
-    get webpackPath() {
+    get _webpackPath() {
         return `${this._basePath}/webpack`
     }
 
-    get configPath() {
-        return `${this.webPath}/config`
+    get _configPath() {
+        return `${this._webpackPath}/config`
     }
 
-    get buildMode() {
-        return this._buildMode
+    get _outputPath() {
+        return `${this._buildPath}/web/${this._buildMode}`
+    }
+
+    get _moduleConfig() {
+        const moduleConfig = require(`${this._configPath}/module`)
+        return moduleConfig
+    }
+
+    get _vendorExternals() {
+        const vendorConfig = this._moduleConfig.vendor
+        const vendorExternals = _.reduce(vendorConfig.expose, (result, vendor, exposeName) => {
+            return {
+                ...result,
+                [vendor.name]: `${this._exposeRoot}.vendor.${exposeName}`,
+            }
+        }, {})
+
+        return vendorExternals
+    }
+
+    get _commonExternals() {
+        const commonConfig = this._moduleConfig.common
+        const commonExternals = _.reduce(commonConfig.expose, (result, common, exposeName) => {
+            return {
+                ...result,
+                [common.name]: `${this._exposeRoot}.common.${exposeName}`,
+            }
+        }, {})
+
+        return commonExternals
+    }
+
+    _getPkg(pkg, props) {
+        return !!_.isString(pkg) ? pkg : pkg[props]
     }
 
     _ifRelease(release, debug) {
-        return this.buildMode === 'release' ? release : debug
+        return this._buildMode === 'release' ? release : debug
     }
 
-    _template() {
-        const outputPath = `${this.buildPath}/web/${this.buildMode}`
-        const appConfig = this._getAppsConfig()
-        const vendorConfig = require(`${this.configPath}/vendor`).default
-
-        let webpackConfig = {
-            mode: this._ifRelease('development', 'development'),
-            name: 'inventor',
-            entry: appConfig.entry,
+    _getTemplate(config) {
+        const webpackConfig = {
+            mode: this._ifRelease('production', 'development'),
+            name: config.name,
+            entry: config.entry,
             output: {
                 filename: this._ifRelease('[name].[chunkhash].js', '[name].js'),
-                path: outputPath,
+                path: this._outputPath,
                 publicPath: this._publicPath,
             },
             module: {
@@ -155,36 +181,6 @@ export default class WebpackConfigure {
                     }
                 ],
             },
-            optimization: {
-                splitChunks: {
-                    cacheGroups: {
-                        default: false,
-                        common: {
-                            chunks: 'all',
-                            test: (module, chunks) => {
-                                if (!!_.startsWith(module.context, `${this.sharedPath}/common`)) {
-                                    return true
-                                }
-                                return false
-                            },
-                            name: 'common/common',
-                            priority: -1,
-                        },
-                        vendor: {
-                            chunks: 'all',
-                            test: (module, chunks) => {
-                                if (!!_.startsWith(module.context, `${this._basePath}/node_modules`)
-                                    || _.startsWith(module.context, `${this.webPath}/vendor`)) {
-                                    return true
-                                }
-                                return false
-                            },
-                            name: 'vendor/vendor',
-                            priority: -2,
-                        },
-                    },
-                },
-            },
             plugins: [
                 new ProgressBarPlugin(),
                 new HappyPack({
@@ -196,113 +192,198 @@ export default class WebpackConfigure {
                     filename: this._ifRelease('[name].[md5:contenthash:hex:20].css', '[name].css'),
                     allChunks: true,
                 }),
-                new HtmlWebpackPlugin({
-                    chunks: [ 'common/common' ],
-                    filename: path.resolve(this.sharedPath, 'common/addon/__build.jsx'),
-                    template: path.resolve(__dirname, 'addon.tpl'),
-                    inject: false,
-                }),
-                new HtmlWebpackPlugin({
-                    chunks: [ 'vendor/vendor' ],
-                    filename: path.resolve(this.sharedPath, 'vendor/addon/__build.jsx'),
-                    template: path.resolve(__dirname, 'addon.tpl'),
-                    inject: false,
-                }),
             ],
             resolve: {
                 extensions: [
                     '.js',
                     '.jsx',
                     '.json',
-                ]
+                ],
+                alias: _.get(config, 'alias', {}),
             },
         }
 
-        webpackConfig.plugins = webpackConfig.plugins.concat(appConfig.plugins)
+        if (!!config.rules) {
+            webpackConfig.module.rules = webpackConfig.module.rules.concat(config.rules)
+        }
+
+        if (!!config.externals) {
+            webpackConfig.externals = _.extend({}, webpackConfig.externals, config.externals)
+        }
+
+        if (!!config.plugins) {
+            webpackConfig.plugins = webpackConfig.plugins.concat(config.plugins)
+        }
 
         if (this._ifRelease('release', 'debug') === 'release') {
-            const cleanDirs = appConfig.output.concat(['common', 'vendor'])
             webpackConfig.plugins.push(
-                new CleanWebpackPlugin(cleanDirs, {
-                    root: path.join(this.buildPath, `/web/${this.buildMode}/`),
+                new CleanWebpackPlugin(config.outputDir, {
+                    root: path.join(this._buildPath, `/web/${this._buildMode}/`),
                 })
             )
 
             webpackConfig.plugins.push(new HashOutput())
-
-            webpackConfig.plugins.push(
-                new webpack.HashedModuleIdsPlugin({
-                    hashFunction: 'md5',
-                    hashDigest: 'hex',
-                    hashDigestLength: 16,
-                })
-            )
         } else {
             webpackConfig.devtool = 'cheap-module-eval-source-map'
             webpackConfig.plugins.push(new webpack.HotModuleReplacementPlugin())
         }
-
         return webpackConfig
     }
 
-    _createEntryFile(appName, entryPath) {
-        const vendorConfig = require(`${this.configPath}/vendor`).default
-        const commonConfig = require(`${this.configPath}/common`).default
-        const appsConfig = require(`${this.configPath}/apps`).default
-        const appConfig = _.get(appsConfig, appName, {})
+    get _appTemplate() {
+        const appConfig = this._moduleConfig.app
+        const appNames = _.keys(appConfig)
 
-        let tplContent = fs.readFileSync(path.resolve(__dirname, 'entry.tpl'), 'utf-8')
+        const configList = _.map(appNames, (appName) => {
+            const outputName = `app/${appName}/index`
+            const entryPath = path.resolve(this._webPath, `__entry/app-${appName}.js`)
 
-        const vendorImportExtra = _.map(vendorConfig.importExtra, (item, index) => `import '${item}'`)
-        const commonImportExtra = _.map(commonConfig.importExtra, (item, index) => `import '${item}'`)
-        const appImportExtra = _.map(appConfig.importExtra, (item, index) => `import '${item}'`)
-        const importExtra = _.uniq(vendorImportExtra.concat(commonImportExtra).concat(appImportExtra)).join('\n')
+            this._createAppEntryFile(appName, entryPath)
+
+            return {
+                entry: { [outputName]: [ entryPath ] },
+                name: _.get(appConfig, `${appName}.name`, ''),
+                plugins: [
+                    new HtmlWebpackPlugin({
+                        chunks: [ outputName ],
+                        filename: path.resolve(this._sharedPath, `app/${appName}/addon/__build.jsx`),
+                        template: path.resolve(__dirname, 'addon.tpl'),
+                        inject: false,
+                    }),
+                ],
+                outputDir: `app/${appName}`,
+                externals: _.extend({}, this._vendorExternals, this._commonExternals)
+            }
+        })
+
+        const template = _.map(configList, (config) => this._getTemplate(config))
+
+        return template
+    }
+
+    get _commonTemplate() {
+        const outputName = 'common/common'
+        const entryPath = path.resolve(this._sharedPath, `common/index.js`)
+        const commonConfig = this._moduleConfig.common
+
+        const config = {
+            entry: { [outputName]: [ entryPath ] },
+            name: commonConfig.name,
+            plugins: [
+                new HtmlWebpackPlugin({
+                    chunks: [ outputName ],
+                    filename: path.resolve(this._sharedPath, `common/addon/__build.jsx`),
+                    template: path.resolve(__dirname, 'addon.tpl'),
+                    inject: false,
+                }),
+            ],
+            outputDir: 'common',
+            rules: _.map(commonConfig.expose, (pkg, exposeName) => {
+                return {
+                    test: require.resolve(this._getPkg(pkg, 'entry')),
+                    use: [
+                        { loader: 'expose-loader', options: `${this._exposeRoot}.common.${exposeName}` },
+                    ],
+                }
+            }),
+            externals: this._vendorExternals,
+        }
+
+        const template = this._getTemplate(config)
+        return template
+    }
+
+    get _vendorTemplate() {
+        const outputName = 'vendor/vendor'
+        const entryPath = path.resolve(this._webPath, `__entry/vendor.js`)
+        const vendorConfig = this._moduleConfig.vendor
+
+        this._createVendorEntryFile(entryPath)
+
+        const config = {
+            entry: { [outputName]: [ entryPath ] },
+            plugins: [
+                new HtmlWebpackPlugin({
+                    chunks: [ outputName ],
+                    filename: path.resolve(this._sharedPath, `vendor/addon/__build.jsx`),
+                    template: path.resolve(__dirname, 'addon.tpl'),
+                    inject: false,
+                }),
+            ],
+            outputDir: 'vendor',
+            rules: _.map(vendorConfig.expose, (pkg, exposeName) => {
+                return {
+                    test: require.resolve(`${this._getPkg(pkg, 'entry')}`),
+                    use: [
+                        { loader: 'expose-loader', options: `${this._exposeRoot}.vendor.${exposeName}` },
+                    ],
+                }
+            })
+        }
+
+        const template = this._getTemplate(config)
+        return template
+    }
+
+    _createAppEntryFile(appName, entryPath) {
+        let tplContent = fs.readFileSync(path.resolve(__dirname, 'appEntry.tpl'), 'utf-8')
 
         tplContent = tplContent.replace(/<-appName->/g, appName)
-                               .replace(/<-importExtra->/g, importExtra)
-                               .replace(/<-sharedPath->/g, this.sharedPath)
-                               .replace(/<-webPath->/g, this.webPath)
-                               .replace(/<-webpackPath->/g, this.webpackPath)
+                               .replace(/<-sharedPath->/g, this._sharedPath)
+                               .replace(/<-webPath->/g, this._webPath)
+                               .replace(/<-webpackPath->/g, this._webpackPath)
 
         fs.writeFileSync(entryPath, tplContent)
     }
 
-    _getAppsConfig() {
-        const appsConfig = require(`${this.configPath}/apps`).default
-        const apps = !!this._appName ? [this._appName] : _.keys(appsConfig)
-        let entry = {}
-        let plugins = []
-        let output = []
 
-        _.each(apps, (appName) => {
-            const config = _.extend({}, appsConfig.common, appsConfig[appName])
-            const outputName = `apps/${appName}/index`
-            const entryPath = path.resolve(this.webPath, `apps/__${appName}.js`)
-            entry[outputName] = [ entryPath ]
+    _createVendorEntryFile(entryPath) {
+        const vendorConfig = this._moduleConfig.vendor
 
-            plugins.push(
-                new HtmlWebpackPlugin({
-                    chunks: [ outputName ],
-                    filename: path.resolve(this.sharedPath, `apps/${appName}/addon/__build.jsx`),
-                    template: path.resolve(__dirname, 'addon.tpl'),
-                    inject: false,
-                }),
-            )
+        let tplContent = fs.readFileSync(path.resolve(__dirname, 'vendorEntry.tpl'), 'utf-8')
 
-            output.push(`apps/${appName}/`)
+        const importExtra = 'module.exports={\n' +_.map(vendorConfig.expose, (pkg, exposeName) => `'${exposeName}': require('${this._getPkg(pkg, 'entry')}')`).join(',\n') + '\n}'
 
-            this._createEntryFile(appName, entryPath)
-        })
+        tplContent = tplContent.replace(/<-importExtra->/g, importExtra)
 
-        return {
-            entry,
-            plugins,
-            output,
-        }
+        fs.writeFileSync(entryPath, tplContent)
     }
 
     getTemplate() {
-        const template = this._template()
+        const vendorTemplate = this._vendorTemplate
+        const commonTemplate = this._commonTemplate
+        const appTemplate = this._appTemplate
+
+        const template = [ vendorTemplate, commonTemplate ].concat(appTemplate)
+
+        return template
+    }
+
+    getDevTemplate() {
+        const appEntry = _.reduce(this._appTemplate, (result, template) => {
+            return {
+                ...result,
+                ...template.entry,
+            }
+        }, {})
+
+        const config =  {
+            name: 'dev',
+            entry: _.extend(
+                {},
+                this._vendorTemplate.entry,
+                this._commonTemplate.entry,
+                appEntry
+            ),
+            alias: _.reduce(this._commonConfig.expose, (result, common, commonName) => {
+                return {
+                    ...result,
+                    [common.name]: common.entry,
+                }
+            }, {})
+        }
+
+        const template = this._getTemplate(config)
 
         return template
     }

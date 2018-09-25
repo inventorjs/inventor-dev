@@ -16,7 +16,7 @@ export default class DevServer {
     constructor({ basePath, publicPath, localWeb, localServer, buildMode } ) {
         const devServer = true
         const configure = new WebpackConfigure({ basePath, publicPath, buildMode, devServer })
-        const webpackConfig = configure.getTemplate()
+        const webpackConfig = configure.getDevTemplate()
 
         webpackConfig.entry = _.mapValues(webpackConfig.entry, (val, key) => {
             const newVal = [
