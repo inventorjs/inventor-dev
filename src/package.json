@@ -1,6 +1,6 @@
 {
   "name": "inventor-dev",
-  "version": "0.0.14",
+  "version": "0.0.17",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -40,7 +40,6 @@
     "html-webpack-plugin": "^3.2.0",
     "less": "^2.7.3",
     "less-loader": "^4.0.5",
-    "md5": "^2.2.1",
     "package-json-cleanup-loader": "^1.0.2",
     "postcss-loader": "^2.0.9",
     "progress-bar-webpack-plugin": "^1.10.0",

@@ -6,9 +6,9 @@
 
 import Kernel from 'inventor/web'
 import App from '<-sharedPath->/app/<-appName->/App'
-import reducers from '<-sharedPath->/app/<-appName->/redux'
+import Store from '<-sharedPath->/app/<-appName->/store'
 import webpackConfig from '<-webpackPath->/config/common'
 import appConfig from '<-sharedPath->/common/config/app'
 
-const kernel = new Kernel({ webpackConfig, appConfig, App, reducers })
+const kernel = new Kernel({ webpackConfig, appConfig, App, Store })
 kernel.run()

@@ -375,7 +375,7 @@ export default class WebpackConfigure {
                 this._commonTemplate.entry,
                 appEntry
             ),
-            alias: _.reduce(this._commonConfig.expose, (result, common, commonName) => {
+            alias: _.reduce(this._moduleConfig.common.expose, (result, common, commonName) => {
                 return {
                     ...result,
                     [common.name]: common.entry,
