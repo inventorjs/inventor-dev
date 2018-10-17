@@ -31,7 +31,7 @@ export default class WebpackConfigure {
         this._basePath = basePath
         this._buildMode = buildMode === 'release' ? 'release' : 'debug'
         this._publicPath = publicPath + '/'
-        this._exposeRoot = '__LIBS__'
+        this._exposeRoot = '__IEXPOSE__'
     }
 
     get _webPath() {
@@ -56,6 +56,10 @@ export default class WebpackConfigure {
 
     get _outputPath() {
         return `${this._buildPath}/web/${this._buildMode}`
+    }
+
+    get _entryDir() {
+        return path.resolve(__dirname, 'tmp')
     }
 
     get _moduleConfig() {
@@ -99,6 +103,7 @@ export default class WebpackConfigure {
         const webpackConfig = {
             mode: this._ifRelease('production', 'development'),
             name: config.name,
+            moduleName: config.moduleName,
             entry: config.entry,
             output: {
                 filename: this._ifRelease('[name].[chunkhash].js', '[name].js'),
@@ -135,11 +140,16 @@ export default class WebpackConfigure {
                                     loader: 'postcss-loader',
                                     options: {
                                         plugins: [
-                                            autoprefixer,
+                                            autoprefixer(),
                                         ],
                                     },
                                 },
-                                'less-loader',
+                                {
+                                    loader: 'less-loader',
+                                    options: {
+                                        javascriptEnabled: true,
+                                    },
+                                },
                             ],
                         }),
                     },
@@ -149,13 +159,7 @@ export default class WebpackConfigure {
                         use: ExtractTextPlugin.extract({
                             fallback: 'style-loader',
                             use: [
-                                {
-                                    loader: 'css-loader',
-                                    query: {
-                                        module: true,
-                                        localIdentName: '[path][name]__[local]',
-                                    }
-                                },
+                                'css-loader',
                                 {
                                     loader: 'postcss-loader',
                                     options: {
@@ -236,13 +240,14 @@ export default class WebpackConfigure {
 
         const configList = _.map(appNames, (appName) => {
             const outputName = `app/${appName}/index`
-            const entryPath = path.resolve(this._webPath, `__entry/app-${appName}.js`)
+            const entryPath = path.resolve(this._entryDir, `app-${appName}.js`)
 
             this._createAppEntryFile(appName, entryPath)
 
             return {
                 entry: { [outputName]: [ entryPath ] },
                 name: _.get(appConfig, `${appName}.name`, ''),
+                moduleName: `app/${appName}`,
                 plugins: [
                     new HtmlWebpackPlugin({
                         chunks: [ outputName ],
@@ -269,6 +274,7 @@ export default class WebpackConfigure {
         const config = {
             entry: { [outputName]: [ entryPath ] },
             name: commonConfig.name,
+            moduleName: 'common',
             plugins: [
                 new HtmlWebpackPlugin({
                     chunks: [ outputName ],
@@ -295,12 +301,14 @@ export default class WebpackConfigure {
 
     get _vendorTemplate() {
         const outputName = 'vendor/vendor'
-        const entryPath = path.resolve(this._webPath, `__entry/vendor.js`)
+        const entryPath = path.resolve(this._entryDir, 'vendor.js')
         const vendorConfig = this._moduleConfig.vendor
 
         this._createVendorEntryFile(entryPath)
 
         const config = {
+            name: vendorConfig.name,
+            moduleName: 'vendor',
             entry: { [outputName]: [ entryPath ] },
             plugins: [
                 new HtmlWebpackPlugin({
@@ -325,8 +333,18 @@ export default class WebpackConfigure {
         return template
     }
 
+    _checkCreateDir(dir) {
+        if (!fs.existsSync(dir)) {
+            return fs.mkdirSync(dir)
+        }
+
+        return true
+    }
+
     _createAppEntryFile(appName, entryPath) {
         let tplContent = fs.readFileSync(path.resolve(__dirname, 'appEntry.tpl'), 'utf-8')
+
+        this._checkCreateDir(path.dirname(entryPath))
 
         tplContent = tplContent.replace(/<-appName->/g, appName)
                                .replace(/<-sharedPath->/g, this._sharedPath)
@@ -340,9 +358,14 @@ export default class WebpackConfigure {
     _createVendorEntryFile(entryPath) {
         const vendorConfig = this._moduleConfig.vendor
 
+        this._checkCreateDir(path.dirname(entryPath))
+
         let tplContent = fs.readFileSync(path.resolve(__dirname, 'vendorEntry.tpl'), 'utf-8')
 
-        const importExtra = 'module.exports={\n' +_.map(vendorConfig.expose, (pkg, exposeName) => `'${exposeName}': require('${this._getPkg(pkg, 'entry')}')`).join(',\n') + '\n}'
+        let loadList = _.map(vendorConfig.expose, (pkg) => this._getPkg(pkg, 'entry'))
+                        .concat(_.get(vendorConfig, 'autoLoad', []))
+
+        const importExtra = _.map(loadList, (pkgName) => `require('${pkgName}')`).join('\n')
 
         tplContent = tplContent.replace(/<-importExtra->/g, importExtra)
 
@@ -353,10 +376,17 @@ export default class WebpackConfigure {
         const vendorTemplate = this._vendorTemplate
         const commonTemplate = this._commonTemplate
         const appTemplate = this._appTemplate
+        const buildModules = _.filter(_.get(process.env, 'BUILD_MODULES', '').split('&'), (moduleName) => !!moduleName)
 
-        const template = [ vendorTemplate, commonTemplate ].concat(appTemplate)
+        let templates = [ vendorTemplate, commonTemplate ].concat(appTemplate)
 
-        return template
+        if (!!buildModules.length) {
+            templates = _.filter(templates, (template) => !!~buildModules.indexOf(template.moduleName))
+        }
+
+        _.each(templates, (template) => _.unset(template, 'moduleName'))
+
+        return templates
     }
 
     getDevTemplate() {
