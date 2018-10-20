@@ -10,6 +10,7 @@ import os from 'os'
 import _ from 'lodash'
 import webpack from 'webpack'
 import HtmlWebpackPlugin from 'html-webpack-plugin'
+import OptimizeCssAssetsPlugin from 'optimize-css-assets-webpack-plugin'
 import CleanWebpackPlugin from 'clean-webpack-plugin'
 import ExtractTextPlugin from 'extract-text-webpack-plugin'
 import autoprefixer from 'autoprefixer'
@@ -63,7 +64,7 @@ export default class WebpackConfigure {
     }
 
     get _moduleConfig() {
-        const moduleConfig = require(`${this._configPath}/module`)
+        const moduleConfig = require(`${this._configPath}/modules`)
         return moduleConfig
     }
 
@@ -103,7 +104,6 @@ export default class WebpackConfigure {
         const webpackConfig = {
             mode: this._ifRelease('production', 'development'),
             name: config.name,
-            moduleName: config.moduleName,
             entry: config.entry,
             output: {
                 filename: this._ifRelease('[name].[chunkhash].js', '[name].js'),
@@ -159,12 +159,18 @@ export default class WebpackConfigure {
                         use: ExtractTextPlugin.extract({
                             fallback: 'style-loader',
                             use: [
-                                'css-loader',
+                                {
+                                    loader: 'css-loader',
+                                    query: {
+                                        module: true,
+                                        localIdentName: '[path][name]__[local]',
+                                    },
+                                },
                                 {
                                     loader: 'postcss-loader',
                                     options: {
                                         plugins: [
-                                            autoprefixer,
+                                            autoprefixer(),
                                         ],
                                     },
                                 },
@@ -207,6 +213,10 @@ export default class WebpackConfigure {
             },
         }
 
+        if (!!config.moduleName) {
+            webpackConfig.moduleName = config.moduleName
+        }
+
         if (!!config.rules) {
             webpackConfig.module.rules = webpackConfig.module.rules.concat(config.rules)
         }
@@ -220,6 +230,7 @@ export default class WebpackConfigure {
         }
 
         if (this._ifRelease('release', 'debug') === 'release') {
+            webpackConfig.plugins.push(new OptimizeCssAssetsPlugin())
             webpackConfig.plugins.push(
                 new CleanWebpackPlugin(config.outputDir, {
                     root: path.join(this._buildPath, `/web/${this._buildMode}/`),
@@ -240,7 +251,7 @@ export default class WebpackConfigure {
 
         const configList = _.map(appNames, (appName) => {
             const outputName = `app/${appName}/index`
-            const entryPath = path.resolve(this._entryDir, `app-${appName}.js`)
+            const entryPath = path.resolve(this._entryDir, `entry-app-${appName}.js`)
 
             this._createAppEntryFile(appName, entryPath)
 
@@ -301,7 +312,7 @@ export default class WebpackConfigure {
 
     get _vendorTemplate() {
         const outputName = 'vendor/vendor'
-        const entryPath = path.resolve(this._entryDir, 'vendor.js')
+        const entryPath = path.resolve(this._entryDir, 'entry-vendor.js')
         const vendorConfig = this._moduleConfig.vendor
 
         this._createVendorEntryFile(entryPath)
@@ -362,8 +373,10 @@ export default class WebpackConfigure {
 
         let tplContent = fs.readFileSync(path.resolve(__dirname, 'vendorEntry.tpl'), 'utf-8')
 
-        let loadList = _.map(vendorConfig.expose, (pkg) => this._getPkg(pkg, 'entry'))
-                        .concat(_.get(vendorConfig, 'autoLoad', []))
+        let loadList = _.get(vendorConfig, 'preLoad', [])
+                            .concat(
+                                _.map(vendorConfig.expose, (pkg) => this._getPkg(pkg, 'entry'))
+                            )
 
         const importExtra = _.map(loadList, (pkgName) => `require('${pkgName}')`).join('\n')
 
