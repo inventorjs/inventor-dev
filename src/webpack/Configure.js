@@ -28,11 +28,11 @@ export default class WebpackConfigure {
     _publicPath = ''
     _appName = ''
 
-    constructor({ basePath, publicPath, buildMode='release' }) {
+    constructor({ basePath, publicPath, buildMode='release', exposeRoot='__INVENTOR_EXPOSE__' }) {
         this._basePath = basePath
         this._buildMode = buildMode === 'release' ? 'release' : 'debug'
         this._publicPath = publicPath + '/'
-        this._exposeRoot = '__IEXPOSE__'
+        this._exposeRoot = exposeRoot
     }
 
     get _webPath() {
@@ -73,7 +73,7 @@ export default class WebpackConfigure {
         const vendorExternals = _.reduce(vendorConfig.expose, (result, vendor, exposeName) => {
             return {
                 ...result,
-                [vendor.name]: `${this._exposeRoot}.vendor.${exposeName}`,
+                [this._getPkg(vendor, 'name')]: `${this._exposeRoot}.vendor.${exposeName}`,
             }
         }, {})
 
@@ -85,7 +85,7 @@ export default class WebpackConfigure {
         const commonExternals = _.reduce(commonConfig.expose, (result, common, exposeName) => {
             return {
                 ...result,
-                [common.name]: `${this._exposeRoot}.common.${exposeName}`,
+                [this._getPkg(common, 'name')]: `${this._exposeRoot}.common.${exposeName}`,
             }
         }, {})
 
@@ -131,7 +131,7 @@ export default class WebpackConfigure {
                         exclude: /node_modules/,
                     },
                     {
-                        test: /(vendor|node_module).*?\.(less|css)$/,
+                        test: /(\/web\/vendor|node_module).*?\.(less|css)$/,
                         use: ExtractTextPlugin.extract({
                             fallback: 'style-loader',
                             use: [
@@ -154,15 +154,15 @@ export default class WebpackConfigure {
                         }),
                     },
                     {
-                        test: /\.css$/,
-                        exclude: /(vendor|node_module)/,
+                        test: /\/shared\/.*?\.css$/,
+                        exclude: /(web\/vendor|node_module)/,
                         use: ExtractTextPlugin.extract({
                             fallback: 'style-loader',
                             use: [
                                 {
                                     loader: 'css-loader',
-                                    query: {
-                                        module: true,
+                                    options: {
+                                        modules: true,
                                         localIdentName: '[path][name]__[local]',
                                     },
                                 },
@@ -250,7 +250,7 @@ export default class WebpackConfigure {
         const appNames = _.keys(appConfig)
 
         const configList = _.map(appNames, (appName) => {
-            const outputName = `app/${appName}/index`
+            const outputName = `apps/${appName}/index`
             const entryPath = path.resolve(this._entryDir, `entry-app-${appName}.js`)
 
             this._createAppEntryFile(appName, entryPath)
@@ -258,16 +258,16 @@ export default class WebpackConfigure {
             return {
                 entry: { [outputName]: [ entryPath ] },
                 name: _.get(appConfig, `${appName}.name`, ''),
-                moduleName: `app/${appName}`,
+                moduleName: `apps/${appName}`,
                 plugins: [
                     new HtmlWebpackPlugin({
                         chunks: [ outputName ],
-                        filename: path.resolve(this._sharedPath, `app/${appName}/addon/__build.jsx`),
+                        filename: path.resolve(this._sharedPath, `apps/${appName}/addon/__build.jsx`),
                         template: path.resolve(__dirname, 'addon.tpl'),
                         inject: false,
                     }),
                 ],
-                outputDir: `app/${appName}`,
+                outputDir: `apps/${appName}`,
                 externals: _.extend({}, this._vendorExternals, this._commonExternals)
             }
         })
@@ -279,8 +279,10 @@ export default class WebpackConfigure {
 
     get _commonTemplate() {
         const outputName = 'common/common'
-        const entryPath = path.resolve(this._sharedPath, `common/index.js`)
+        const entryPath = path.resolve(this._entryDir, `entry-common.js`)
         const commonConfig = this._moduleConfig.common
+
+        this._createLibEntryFile(entryPath, 'common')
 
         const config = {
             entry: { [outputName]: [ entryPath ] },
@@ -295,14 +297,6 @@ export default class WebpackConfigure {
                 }),
             ],
             outputDir: 'common',
-            rules: _.map(commonConfig.expose, (pkg, exposeName) => {
-                return {
-                    test: require.resolve(this._getPkg(pkg, 'entry')),
-                    use: [
-                        { loader: 'expose-loader', options: `${this._exposeRoot}.common.${exposeName}` },
-                    ],
-                }
-            }),
             externals: this._vendorExternals,
         }
 
@@ -315,7 +309,7 @@ export default class WebpackConfigure {
         const entryPath = path.resolve(this._entryDir, 'entry-vendor.js')
         const vendorConfig = this._moduleConfig.vendor
 
-        this._createVendorEntryFile(entryPath)
+        this._createLibEntryFile(entryPath, 'vendor')
 
         const config = {
             name: vendorConfig.name,
@@ -330,14 +324,6 @@ export default class WebpackConfigure {
                 }),
             ],
             outputDir: 'vendor',
-            rules: _.map(vendorConfig.expose, (pkg, exposeName) => {
-                return {
-                    test: require.resolve(`${this._getPkg(pkg, 'entry')}`),
-                    use: [
-                        { loader: 'expose-loader', options: `${this._exposeRoot}.vendor.${exposeName}` },
-                    ],
-                }
-            })
         }
 
         const template = this._getTemplate(config)
@@ -357,7 +343,9 @@ export default class WebpackConfigure {
 
         this._checkCreateDir(path.dirname(entryPath))
 
-        tplContent = tplContent.replace(/<-appName->/g, appName)
+        const appPath = `${this._sharedPath}/apps/${appName}`
+
+        tplContent = tplContent.replace(/<-appPath->/g, appPath)
                                .replace(/<-sharedPath->/g, this._sharedPath)
                                .replace(/<-webPath->/g, this._webPath)
                                .replace(/<-webpackPath->/g, this._webpackPath)
@@ -366,21 +354,20 @@ export default class WebpackConfigure {
     }
 
 
-    _createVendorEntryFile(entryPath) {
-        const vendorConfig = this._moduleConfig.vendor
+    _createLibEntryFile(entryPath, moduleName) {
+        const moduleConfig = this._moduleConfig[moduleName]
 
         this._checkCreateDir(path.dirname(entryPath))
 
-        let tplContent = fs.readFileSync(path.resolve(__dirname, 'vendorEntry.tpl'), 'utf-8')
+        let tplContent = fs.readFileSync(path.resolve(__dirname, 'libEntry.tpl'), 'utf-8')
 
-        let loadList = _.get(vendorConfig, 'preLoad', [])
-                            .concat(
-                                _.map(vendorConfig.expose, (pkg) => this._getPkg(pkg, 'entry'))
-                            )
+        let requireArr = _.map(_.get(moduleConfig, 'preLoad', []), (entry) => `require('${entry}')`)
 
-        const importExtra = _.map(loadList, (pkgName) => `require('${pkgName}')`).join('\n')
+        requireArr = requireArr.concat(
+                        _.map(moduleConfig.expose, (pkg, exposeName) => `_.set(window, '${this._exposeRoot}.${moduleName}.${exposeName}', require('${this._getPkg(pkg, 'entry')}'))`)
+                    )
 
-        tplContent = tplContent.replace(/<-importExtra->/g, importExtra)
+        tplContent = tplContent.replace(/<-importExtra->/g, requireArr.join('\n'))
 
         fs.writeFileSync(entryPath, tplContent)
     }
@@ -396,6 +383,9 @@ export default class WebpackConfigure {
         if (!!buildModules.length) {
             templates = _.filter(templates, (template) => !!~buildModules.indexOf(template.moduleName))
         }
+
+        const targetModules = _.map(templates, (template) => template.moduleName)
+        console.log(`target build modules => ${JSON.stringify(targetModules)}`)
 
         _.each(templates, (template) => _.unset(template, 'moduleName'))
 
