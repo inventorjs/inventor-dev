@@ -396,11 +396,18 @@ export default class WebpackConfigure {
     }
 
     getDevTemplate() {
+        var appModules = _.filter(_.get(process.env, 'BUILD_MODULES', '').split('&'), function (moduleName) {
+            return !!moduleName;
+        });
+
         const appEntry = _.reduce(this._appTemplate, (result, template) => {
-            return {
-                ...result,
-                ...template.entry,
+            if (!appModules.length || !!~appModules.indexOf(template.moduleName)) {
+                return {
+                    ...result,
+                    ...template.entry,
+                }
             }
+            return result
         }, {})
 
         const config =  {
@@ -420,6 +427,26 @@ export default class WebpackConfigure {
         }
 
         const template = this._getTemplate(config)
+
+        template.optimization = {
+            splitChunks: {
+                cacheGroups: {
+                    default: false,
+                    common: {
+                        chunks: 'all',
+                        test: /[\\/]shared[\\/]common[\\/]/,
+                        name: 'common/common',
+                        priority: 99,
+                    },
+                    vendor: {
+                        chunks: 'all',
+                        test: /[\\/]node_modules[\\/]|[\\/]vendor[\\/]/,
+                        name: 'vendor/vendor',
+                        priority: 100,
+                    },
+                },
+            },
+        }
 
         return template
     }
