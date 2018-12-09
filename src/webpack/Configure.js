@@ -27,12 +27,14 @@ export default class WebpackConfigure {
     _buildMode = ''
     _publicPath = ''
     _appName = ''
+    _viewEngine = ''
 
-    constructor({ basePath, publicPath, buildMode='release', exposeRoot='__INVENTOR_EXPOSE__' }) {
+    constructor({ basePath, publicPath, viewEngine, buildMode='release', exposeRoot='__INVENTOR_EXPOSE__' }) {
         this._basePath = basePath
         this._buildMode = buildMode === 'release' ? 'release' : 'debug'
         this._publicPath = publicPath + '/'
         this._exposeRoot = exposeRoot
+        this._viewEngine = viewEngine
     }
 
     get _webPath() {
@@ -339,20 +341,14 @@ export default class WebpackConfigure {
     }
 
     _createAppEntryFile(appName, entryPath) {
-        let tplContent = fs.readFileSync(path.resolve(__dirname, 'appEntry.tpl'), 'utf-8')
+        const appPath = `${this._sharedPath}/app/${appName}`
+        const webPath = this._webPath
 
-        this._checkCreateDir(path.dirname(entryPath))
+        const engine = require(`inventor-view-${this._viewEngine}/web`)
+        const entryContent = engine.getAppEntry({ appPath, webPath })
 
-        const appPath = `${this._sharedPath}/apps/${appName}`
-
-        tplContent = tplContent.replace(/<-appPath->/g, appPath)
-                               .replace(/<-sharedPath->/g, this._sharedPath)
-                               .replace(/<-webPath->/g, this._webPath)
-                               .replace(/<-webpackPath->/g, this._webpackPath)
-
-        fs.writeFileSync(entryPath, tplContent)
+        fs.writeFileSync(entryPath, entryContent)
     }
-
 
     _createLibEntryFile(entryPath, moduleName) {
         const moduleConfig = this._moduleConfig[moduleName]
