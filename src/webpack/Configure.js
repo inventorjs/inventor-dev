@@ -34,7 +34,7 @@ export default class WebpackConfigure {
         this._buildMode = buildMode === 'release' ? 'release' : 'debug'
         this._publicPath = publicPath + '/'
         this._exposeRoot = exposeRoot
-        this._viewEngine = viewEngine
+        this._viewEngine = require(`inventor-view-${viewEngine}/web`)()
     }
 
     get _webPath() {
@@ -235,11 +235,11 @@ export default class WebpackConfigure {
             webpackConfig.plugins.push(new OptimizeCssAssetsPlugin())
             webpackConfig.plugins.push(
                 new CleanWebpackPlugin(config.outputDir, {
-                    root: path.join(this._buildPath, `/web/${this._buildMode}/`),
+                    root: path.resolve(this._buildPath, `web/${this._buildMode}/`),
                 })
             )
 
-            webpackConfig.plugins.push(new HashOutput())
+            webpackConfig.plugins.unshift(new HashOutput())
         } else {
             webpackConfig.devtool = 'cheap-module-eval-source-map'
             webpackConfig.plugins.push(new webpack.HotModuleReplacementPlugin())
@@ -249,10 +249,11 @@ export default class WebpackConfigure {
 
     get _appTemplate() {
         const appConfig = this._moduleConfig.app
-        const appNames = _.keys(appConfig)
+        const appNames = _.keys(appConfig.modules)
+        const prefixApp = `${appConfig.ename}${appName}`
 
         const configList = _.map(appNames, (appName) => {
-            const outputName = `apps/${appName}/index`
+            const outputName = `${prefixApp}/index`
             const entryPath = path.resolve(this._entryDir, `entry-app-${appName}.js`)
 
             this._createAppEntryFile(appName, entryPath)
@@ -260,16 +261,16 @@ export default class WebpackConfigure {
             return {
                 entry: { [outputName]: [ entryPath ] },
                 name: _.get(appConfig, `${appName}.name`, ''),
-                moduleName: `apps/${appName}`,
+                moduleName: `${prefixApp}`,
                 plugins: [
                     new HtmlWebpackPlugin({
                         chunks: [ outputName ],
-                        filename: path.resolve(this._sharedPath, `apps/${appName}/addon/__build.jsx`),
+                        filename: path.resolve(this._sharedPath, `${prefixApp}/addon/__build.jsx`),
                         template: path.resolve(__dirname, 'addon.tpl'),
                         inject: false,
                     }),
                 ],
-                outputDir: `apps/${appName}`,
+                outputDir: `${prefixApp}`,
                 externals: _.extend({}, this._vendorExternals, this._commonExternals)
             }
         })
@@ -280,9 +281,9 @@ export default class WebpackConfigure {
     }
 
     get _commonTemplate() {
-        const outputName = 'common/common'
-        const entryPath = path.resolve(this._entryDir, `entry-common.js`)
         const commonConfig = this._moduleConfig.common
+        const outputName = `${commonConfig.ename}/common`
+        const entryPath = path.resolve(this._entryDir, `entry-common.js`)
 
         this._createLibEntryFile(entryPath, 'common')
 
@@ -293,7 +294,7 @@ export default class WebpackConfigure {
             plugins: [
                 new HtmlWebpackPlugin({
                     chunks: [ outputName ],
-                    filename: path.resolve(this._sharedPath, `common/addon/__build.jsx`),
+                    filename: path.resolve(this._sharedPath, `${commonConfig.ename}/addon/__build.jsx`),
                     template: path.resolve(__dirname, 'addon.tpl'),
                     inject: false,
                 }),
@@ -307,9 +308,9 @@ export default class WebpackConfigure {
     }
 
     get _vendorTemplate() {
-        const outputName = 'vendor/vendor'
-        const entryPath = path.resolve(this._entryDir, 'entry-vendor.js')
         const vendorConfig = this._moduleConfig.vendor
+        const outputName = `${vendorConfig.ename}/vendor`
+        const entryPath = path.resolve(this._entryDir, 'entry-vendor.js')
 
         this._createLibEntryFile(entryPath, 'vendor')
 
@@ -320,7 +321,7 @@ export default class WebpackConfigure {
             plugins: [
                 new HtmlWebpackPlugin({
                     chunks: [ outputName ],
-                    filename: path.resolve(this._sharedPath, `vendor/addon/__build.jsx`),
+                    filename: path.resolve(this._sharedPath, `${vendorConfig.ename}/addon/__build.jsx`),
                     template: path.resolve(__dirname, 'addon.tpl'),
                     inject: false,
                 }),
@@ -341,11 +342,11 @@ export default class WebpackConfigure {
     }
 
     _createAppEntryFile(appName, entryPath) {
-        const appPath = `${this._sharedPath}/app/${appName}`
+        const appConfig = this._moduleConfig.app
+        const appPath = `${this._sharedPath}/${appConfig.ename}/${appName}`
         const webPath = this._webPath
 
-        const engine = require(`inventor-view-${this._viewEngine}/web`)
-        const entryContent = engine.getAppEntry({ appPath, webPath })
+        const entryContent = this._viewEngine.getAppEntry({ appPath, webPath })
 
         fs.writeFileSync(entryPath, entryContent)
     }
@@ -368,16 +369,15 @@ export default class WebpackConfigure {
         fs.writeFileSync(entryPath, tplContent)
     }
 
-    getTemplate() {
+    getTemplate({ modules }) {
         const vendorTemplate = this._vendorTemplate
         const commonTemplate = this._commonTemplate
         const appTemplate = this._appTemplate
-        const buildModules = _.filter(_.get(process.env, 'BUILD_MODULES', '').split('&'), (moduleName) => !!moduleName)
 
         let templates = [ vendorTemplate, commonTemplate ].concat(appTemplate)
 
-        if (!!buildModules.length) {
-            templates = _.filter(templates, (template) => !!~buildModules.indexOf(template.moduleName))
+        if (!!modules.length) {
+            templates = _.filter(templates, (template) => !!~modules.indexOf(template.moduleName))
         }
 
         const targetModules = _.map(templates, (template) => template.moduleName)
@@ -391,13 +391,9 @@ export default class WebpackConfigure {
         return templates
     }
 
-    getDevTemplate() {
-        var appModules = _.filter(_.get(process.env, 'BUILD_MODULES', '').split('&'), function (moduleName) {
-            return !!moduleName;
-        });
-
+    getDevTemplate({ modules }) {
         const appEntry = _.reduce(this._appTemplate, (result, template) => {
-            if (!appModules.length || !!~appModules.indexOf(template.moduleName)) {
+            if (!modules.length || !!~modules.indexOf(template.moduleName)) {
                 return {
                     ...result,
                     ...template.entry,
