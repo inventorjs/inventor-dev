@@ -4,5 +4,5 @@
  * @author : sunkeysun
  */
 
-export { default as WebpackConfigure } from './webpack/Configure'
-export { default as WebpackDevServer } from './webpack/DevServer'
+export WebpackConfigure from './webpack/Configure'
+export WebpackDevServer from './webpack/DevServer'
