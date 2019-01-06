@@ -34,7 +34,7 @@ export default class WebpackConfigure {
         this._buildMode = buildMode === 'release' ? 'release' : 'debug'
         this._publicPath = publicPath + '/'
         this._exposeRoot = exposeRoot
-        this._viewEngine = require(`inventor-view-${viewEngine}/web`)()
+        this._viewEngine = require(`inventor-view-${viewEngine}/web`).default()
     }
 
     get _webPath() {
@@ -161,13 +161,7 @@ export default class WebpackConfigure {
                         use: ExtractTextPlugin.extract({
                             fallback: 'style-loader',
                             use: [
-                                {
-                                    loader: 'css-loader',
-                                    options: {
-                                        modules: true,
-                                        localIdentName: '[path][name]__[local]',
-                                    },
-                                },
+                                'css-loader',
                                 {
                                     loader: 'postcss-loader',
                                     options: {
@@ -250,10 +244,10 @@ export default class WebpackConfigure {
     get _appTemplate() {
         const appConfig = this._moduleConfig.app
         const appNames = _.keys(appConfig.modules)
-        const prefixApp = `${appConfig.ename}${appName}`
+        const prefixApp = `${appConfig.ename}`
 
         const configList = _.map(appNames, (appName) => {
-            const outputName = `${prefixApp}/index`
+            const outputName = `${prefixApp}/${appName}/index`
             const entryPath = path.resolve(this._entryDir, `entry-app-${appName}.js`)
 
             this._createAppEntryFile(appName, entryPath)
