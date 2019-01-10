@@ -34,7 +34,9 @@ export default class WebpackConfigure {
         this._buildMode = buildMode === 'release' ? 'release' : 'debug'
         this._publicPath = publicPath + '/'
         this._exposeRoot = exposeRoot
-        this._viewEngine = require(`inventor-view-${viewEngine}/web`).default()
+
+        const ViewEngine = require(`inventor-view-${viewEngine}/web`).default()
+        this._viewEngine = new ViewEngine()
     }
 
     get _webPath() {
@@ -422,13 +424,13 @@ export default class WebpackConfigure {
                         chunks: 'all',
                         test: /[\\/]shared[\\/]common[\\/]/,
                         name: 'common/common',
-                        priority: 99,
+                        priority: 2,
                     },
                     vendor: {
                         chunks: 'all',
                         test: /[\\/]node_modules[\\/]|[\\/]vendor[\\/]/,
                         name: 'vendor/vendor',
-                        priority: 100,
+                        priority: 1,
                     },
                 },
             },
