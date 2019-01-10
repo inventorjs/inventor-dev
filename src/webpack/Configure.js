@@ -246,10 +246,10 @@ export default class WebpackConfigure {
     get _appTemplate() {
         const appConfig = this._moduleConfig.app
         const appNames = _.keys(appConfig.modules)
-        const prefixApp = `${appConfig.ename}`
 
         const configList = _.map(appNames, (appName) => {
-            const outputName = `${prefixApp}/${appName}/index`
+            const prefixApp = `${appConfig.ename}/${appName}`
+            const outputName = `${prefixApp}/index`
             const entryPath = path.resolve(this._entryDir, `entry-app-${appName}.js`)
 
             this._createAppEntryFile(appName, entryPath)
@@ -338,6 +338,8 @@ export default class WebpackConfigure {
     }
 
     _createAppEntryFile(appName, entryPath) {
+        this._checkCreateDir(this._entryDir)
+
         const appConfig = this._moduleConfig.app
         const appPath = `${this._sharedPath}/${appConfig.ename}/${appName}`
         const webPath = this._webPath
@@ -348,6 +350,8 @@ export default class WebpackConfigure {
     }
 
     _createLibEntryFile(entryPath, moduleName) {
+        this._checkCreateDir(this._entryDir)
+
         const moduleConfig = this._moduleConfig[moduleName]
 
         this._checkCreateDir(path.dirname(entryPath))
