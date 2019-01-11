@@ -35,7 +35,7 @@ export default class WebpackConfigure {
         this._publicPath = publicPath + '/'
         this._exposeRoot = exposeRoot
 
-        const ViewEngine = require(`inventor-view-${viewEngine}/web`).default()
+        const ViewEngine = require(`inventor-view-${viewEngine}/web`).default
         this._viewEngine = new ViewEngine()
     }
 
@@ -163,7 +163,13 @@ export default class WebpackConfigure {
                         use: ExtractTextPlugin.extract({
                             fallback: 'style-loader',
                             use: [
-                                'css-loader',
+                                {
+                                    loader: 'css-loader',
+                                    options: {
+                                        modules: true,
+                                        localIdentName: '[path][name]__[local]',
+                                    },
+                                },
                                 {
                                     loader: 'postcss-loader',
                                     options: {

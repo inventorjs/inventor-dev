@@ -37,10 +37,6 @@ export default class BabelConfigure {
             '@babel/plugin-syntax-dynamic-import',
             '@babel/plugin-proposal-function-bind',
             ['@babel/transform-runtime', { regenerator: false }],
-            ['css-modules-transform', {
-                generateScopedName: '[path][name]__[local]',
-                extensions: ['.css']
-            }],
         ]
     }
 
@@ -56,6 +52,10 @@ export default class BabelConfigure {
             plugins: [
                 ['module-resolver', {
                     "alias": _.get(this._config, 'server.alias', {})
+                }],
+                ['css-modules-transform', {
+                    generateScopedName: '[path][name]__[local]',
+                    extensions: ['.css']
                 }],
                 ...this._getCommonPlugins(),
                 ..._.get(this._config, 'server.plugins', []),
