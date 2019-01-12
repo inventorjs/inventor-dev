@@ -350,7 +350,7 @@ export default class WebpackConfigure {
         const appPath = `${this._sharedPath}/${appConfig.ename}/${appName}`
         const webPath = this._webPath
 
-        const entryContent = this._viewEngine.getAppEntry({ appPath, webPath })
+        const entryContent = this._viewEngine.getEntryTpl({ appPath, webPath })
 
         fs.writeFileSync(entryPath, entryContent)
     }
