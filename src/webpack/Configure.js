@@ -388,10 +388,6 @@ export default class WebpackConfigure {
 
         const targetModules = _.map(templates, (template) => template.moduleName)
 
-        console.log('=========================================================')
-        console.log(`Target build modules => ${JSON.stringify(targetModules)}`)
-        console.log('=========================================================')
-
         _.each(templates, (template) => _.unset(template, 'moduleName'))
 
         return templates
