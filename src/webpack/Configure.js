@@ -64,7 +64,7 @@ export default class WebpackConfigure {
     }
 
     get _entryDir() {
-        return path.resolve(os.tmpDir(), 'inventor-dev')
+        return path.resolve(__dirname, '../__tmp')
     }
 
     get _moduleConfig() {
