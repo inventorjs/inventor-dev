@@ -36,7 +36,6 @@ export default class BabelConfigure {
             '@babel/plugin-proposal-export-namespace-from',
             '@babel/plugin-syntax-dynamic-import',
             '@babel/plugin-proposal-function-bind',
-            ['@babel/transform-runtime', { regenerator: false }],
         ]
     }
 
@@ -57,6 +56,7 @@ export default class BabelConfigure {
                     generateScopedName: '[path][name]__[local]',
                     extensions: ['.css']
                 }],
+                ['@babel/transform-runtime', { regenerator: false }],
                 ...this._getCommonPlugins(),
                 ..._.get(this._config, 'server.plugins', []),
             ]
@@ -77,6 +77,7 @@ export default class BabelConfigure {
                 ['module-resolver', {
                     alias: _.get(this._config, 'web.alias'),
                 }],
+                '@babel/transform-runtime',
                 ...this._getCommonPlugins(),
                 ..._.get(this._config, 'web.plugins', []),
             ],
