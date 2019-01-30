@@ -8,8 +8,9 @@ import _ from 'lodash'
 
 export default class BabelConfigure {
     _ENVS = [ 'server', 'web' ]
+
     _SERVER_TARGETS = { node: '10.14.0' }
-    _WEB_TARGETS = {}
+    _WEB_TARGETS = { browsers: '> 0.1%, not ie <= 8' }
 
     _env = 'web'
     _config = {
@@ -32,21 +33,19 @@ export default class BabelConfigure {
         return [
             ['@babel/plugin-proposal-decorators', { 'legacy': true }],
             ['@babel/plugin-proposal-class-properties', { 'loose': true }],
-            '@babel/plugin-proposal-export-default-from',
-            '@babel/plugin-proposal-export-namespace-from',
-            '@babel/plugin-syntax-dynamic-import',
-            '@babel/plugin-proposal-function-bind',
+            ['@babel/plugin-proposal-export-default-from'],
+            ['@babel/plugin-proposal-export-namespace-from'],
+            ['@babel/plugin-syntax-dynamic-import'],
+            ['@babel/plugin-proposal-function-bind'],
         ]
     }
 
     _getServerTemplate() {
         const defaultTemplate = {
             presets: [
-                '@babel/preset-react',
                 ['@babel/preset-env', {
-                    targets: _.get(this._config, 'server.targets', this._SERVER_TARGETS),
+                    targets: this._SERVER_TARGETS,
                 }],
-                ..._.get(this._config, 'server.presets', []),
             ],
             plugins: [
                 ['module-resolver', {
@@ -58,32 +57,66 @@ export default class BabelConfigure {
                 }],
                 ['@babel/transform-runtime', { regenerator: false }],
                 ...this._getCommonPlugins(),
-                ..._.get(this._config, 'server.plugins', []),
             ]
         }
-        return defaultTemplate
+        const template = this._processOverwrite(defaultTemplate, this._config.server)
+
+        return template
     }
 
     _getWebTemplate() {
         const defaultTemplate = {
             presets: [
-                '@babel/preset-react',
                 ['@babel/preset-env', {
-                    targets: _.get(this._config, 'web.targets', this._WEB_TARGETS),
+                    targets: this._WEB_TARGETS,
                 }],
-                ..._.get(this._config, 'web.presets', []),
             ],
             plugins: [
                 ['module-resolver', {
-                    alias: _.get(this._config, 'web.alias'),
+                    alias: _.get(this._config, 'web.alias', {}),
                 }],
-                '@babel/transform-runtime',
+                ['@babel/transform-runtime'],
                 ...this._getCommonPlugins(),
-                ..._.get(this._config, 'web.plugins', []),
             ],
         }
 
-        return defaultTemplate
+        const template = this._processOverwrite(defaultTemplate, this._config.web)
+
+        return template
+    }
+
+    _processOverwrite(defaultTemplate, customTemplate) {
+        const customPresets = _.map(customTemplate.presets, (preset) => this._normalize(preset))
+        const customPlugins = _.map(customTemplate.plugins, (plugin) => this._normalize(plugin))
+        const defaultPresets = _.map(defaultTemplate.presets, (preset) => this._normalize(preset))
+        const defaultPlugins = _.map(defaultTemplate.plugins, (plugin) => this._normalize(plugin))
+
+        const morePresets = _.filter(
+            customPresets,
+            (preset) => !_.find(defaultPresets, (pst) => pst[0] === preset[0])
+        )
+
+        const presets = _.filter(_.map(defaultPresets, (preset, index) => {
+            const customPreset = _.find(customPresets, (pst) => preset[0] === pst[0])
+            return customPreset ? customPreset : preset
+        }).concat(morePresets), (preset) => preset[1] !== 'exclude')
+
+        const morePlugins = _.filter(
+            customPlugins,
+            (plugin) => !_.find(defaultPlugins, (plg) => plg[0] === plugin[0])
+        )
+
+        const plugins = _.filter(_.map(defaultPlugins, (plugin, index) => {
+            const customPlugin = _.find(customPlugins, (plg) => plugin[0] === plg[0])
+            return customPlugin ? customPlugin : plugin
+        }).concat(morePlugins), (plugin) => plugin[1] !== 'exclude')
+
+        return { presets, plugins, ..._.omit(customTemplate, ['presets', 'plugins', 'alias']) }
+    }
+
+    _normalize(target) {
+        const result = _.isArray(target) ? target : [target]
+        return result
     }
 
     getTemplate() {
