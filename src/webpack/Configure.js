@@ -347,8 +347,8 @@ export default class WebpackConfigure {
         this._checkCreateDir(this._entryDir)
 
         const appConfig = this._moduleConfig.app
-        const appPath = `${this._sharedPath}/${appConfig.ename}/${appName}`
-        const webPath = this._webPath
+        const appPath = path.resolve(`${this._sharedPath}/${appConfig.ename}/${appName}`)
+        const webPath = path.resolve(this._webPath)
 
         const entryContent = this._viewEngine.getEntryTpl({ appPath, webPath })
 
