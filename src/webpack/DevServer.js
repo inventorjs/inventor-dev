@@ -20,8 +20,7 @@ export default class DevServer {
 
         webpackConfig.entry = _.mapValues(webpackConfig.entry, (val, key) => {
             const newVal = [
-                `webpack-dev-server/client?http://${localWeb.host}:${localWeb.port}/`,
-                'webpack/hot/only-dev-server',
+                'react-hot-loader/patch',
                 ...val,
             ]
             return newVal
