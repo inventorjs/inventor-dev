@@ -111,7 +111,7 @@ export default class BabelConfigure {
             return customPlugin ? customPlugin : plugin
         }).concat(morePlugins), (plugin) => plugin[1] !== 'exclude')
 
-        return { presets, plugins, ..._.omit(customTemplate, ['presets', 'plugins', 'alias']) }
+        return { presets, plugins, ..._.omit(customTemplate, ['presets', 'plugins', 'alias', 'targets']) }
     }
 
     _normalize(target) {
