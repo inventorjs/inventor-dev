@@ -21,6 +21,8 @@ export default class DevServer {
         webpackConfig.entry = _.mapValues(webpackConfig.entry, (val, key) => {
             const newVal = [
                 'react-hot-loader/patch',
+                'webpack-dev-server/client?http://' + localWeb.host + ':' + localWeb.port + '/',
+                'webpack/hot/only-dev-server',
                 ...val,
             ]
             return newVal
@@ -32,6 +34,7 @@ export default class DevServer {
             hot: true,
             publicPath: publicPath+'/',
             historyApiFallback: true,
+            sockHost: `${localServer.host}:${localServer.port}`,
             headers: {
                 'Access-Control-Allow-Origin': `http://${localServer.host}:${localServer.port}`,
                 'Access-Control-Allow-Credentials': true,
