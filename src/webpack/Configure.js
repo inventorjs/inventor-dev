@@ -135,7 +135,7 @@ export default class WebpackConfigure {
                         exclude: /node_modules/,
                     },
                     {
-                        test: /(\/web\/vendor|node_module).*?\.(less|css)$/,
+                        test: /(\/web\/vendor|node_modules).*?\.(less|css)$/,
                         use: ExtractTextPlugin.extract({
                             fallback: 'style-loader',
                             use: [
@@ -159,7 +159,7 @@ export default class WebpackConfigure {
                     },
                     {
                         test: /\/shared\/.*?\.css$/,
-                        exclude: /(web\/vendor|node_module)/,
+                        exclude: /(web\/vendor|node_modules)/,
                         use: ExtractTextPlugin.extract({
                             fallback: 'style-loader',
                             use: [
