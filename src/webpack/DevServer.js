@@ -32,7 +32,8 @@ export default class DevServer {
         this._server = new WebpackDevServer(compiler, {
             hot: true,
             historyApiFallback: true,
-            host: `${localServer.host}:${localServer.port}`,
+            // host: `${localServer.host}:${localServer.port}`,
+            port: localServer.port,
             headers: {
                 'Access-Control-Allow-Origin': `http://${localServer.host}:${localServer.port}`,
                 'Access-Control-Allow-Credentials': true,

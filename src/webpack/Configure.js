@@ -137,11 +137,13 @@ export default class WebpackConfigure {
                             MiniCssExtractPlugin.loader,
                             'css-loader',
                             {
-                                loader: 'postcss-loader',
+                                loader: "postcss-loader",
                                 options: {
-                                    plugins: [
-                                        autoprefixer(),
-                                    ],
+                                    postcssOptions: {
+                                        plugins: [
+                                            'autoprefixer',
+                                        ],
+                                    },
                                 },
                             },
                             {
@@ -167,9 +169,11 @@ export default class WebpackConfigure {
                             {
                                 loader: 'postcss-loader',
                                 options: {
-                                    plugins: [
-                                        autoprefixer(),
-                                    ],
+                                    postcssOptions: {
+                                        plugins: [
+                                            'autoprefixer',
+                                        ],
+                                    },
                                 },
                             },
                         ],
@@ -189,9 +193,6 @@ export default class WebpackConfigure {
                 ],
             },
             plugins: [
-                new webpack.ProgressPlugin((percentage, message, ...args) => {
-                    console.info(percentage, message, ...args);
-                }),
                 new HappyPack({
                     id: 'babel',
                     loaders: ['babel-loader'],
@@ -419,14 +420,14 @@ export default class WebpackConfigure {
                         chunks: 'all',
                         maxSize: 200000,
                         test: /[\\/]shared[\\/]common[\\/]/,
-                        name: 'common/common',
+                        // name: 'common/common',
                         priority: 1,
                     },
                     vendor: {
                         chunks: 'all',
                         maxSize: 200000,
                         test: /[\\/]node_modules[\\/]|[\\/]vendor[\\/]/,
-                        name: 'vendor/vendor',
+                        // name: 'vendor/vendor',
                         priority: 2,
                     },
                 },
