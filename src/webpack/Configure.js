@@ -10,13 +10,10 @@ import os from 'os'
 import _ from 'lodash'
 import webpack from 'webpack'
 import HtmlWebpackPlugin from 'html-webpack-plugin'
-import OptimizeCssAssetsPlugin from 'optimize-css-assets-webpack-plugin'
 import CleanWebpackPlugin from 'clean-webpack-plugin'
-import ExtractTextPlugin from 'extract-text-webpack-plugin'
+import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 import autoprefixer from 'autoprefixer'
-import ProgressBarPlugin from 'progress-bar-webpack-plugin'
 import HappyPack from 'happypack'
-import HashOutput from 'webpack-plugin-hash-output'
 
 const happyThreadPool = HappyPack.ThreadPool({ size: os.cpus().length })
 
@@ -136,50 +133,46 @@ export default class WebpackConfigure {
                     },
                     {
                         test: /(\/web\/vendor|node_modules).*?\.(less|css)$/,
-                        use: ExtractTextPlugin.extract({
-                            fallback: 'style-loader',
-                            use: [
-                                'css-loader',
-                                {
-                                    loader: 'postcss-loader',
-                                    options: {
-                                        plugins: [
-                                            autoprefixer(),
-                                        ],
-                                    },
+                        use:  [
+                            MiniCssExtractPlugin.loader,
+                            'css-loader',
+                            {
+                                loader: 'postcss-loader',
+                                options: {
+                                    plugins: [
+                                        autoprefixer(),
+                                    ],
                                 },
-                                {
-                                    loader: 'less-loader',
-                                    options: {
-                                        javascriptEnabled: true,
-                                    },
+                            },
+                            {
+                                loader: 'less-loader',
+                                options: {
+                                    javascriptEnabled: true,
                                 },
-                            ],
-                        }),
+                            },
+                        ],
                     },
                     {
                         test: /\/shared\/.*?\.css$/,
                         exclude: /(web\/vendor|node_modules)/,
-                        use: ExtractTextPlugin.extract({
-                            fallback: 'style-loader',
-                            use: [
-                                {
-                                    loader: 'css-loader',
-                                    options: {
-                                        modules: true,
-                                        localIdentName: '[path][name]__[local]',
-                                    },
+                        use: [
+                            MiniCssExtractPlugin.loader,
+                            {
+                                loader: 'css-loader',
+                                options: {
+                                    modules: true,
+                                    localIdentName: '[path][name]__[local]',
                                 },
-                                {
-                                    loader: 'postcss-loader',
-                                    options: {
-                                        plugins: [
-                                            autoprefixer(),
-                                        ],
-                                    },
+                            },
+                            {
+                                loader: 'postcss-loader',
+                                options: {
+                                    plugins: [
+                                        autoprefixer(),
+                                    ],
                                 },
-                            ],
-                        }),
+                            },
+                        ],
                     },
                     {
                         test: /\.(png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)$/,
@@ -196,16 +189,15 @@ export default class WebpackConfigure {
                 ],
             },
             plugins: [
-                new ProgressBarPlugin(),
+                new webpack.ProgressPlugin((percentage, message, ...args) => {
+                    console.info(percentage, message, ...args);
+                }),
                 new HappyPack({
                     id: 'babel',
                     loaders: ['babel-loader'],
                     threadPool: happyThreadPool,
                 }),
-                new ExtractTextPlugin({
-                    filename: this._ifRelease('[name].[md5:contenthash:hex:20].css', '[name].css'),
-                    allChunks: true,
-                }),
+                new MiniCssExtractPlugin(),
             ],
             resolve: {
                 extensions: [
@@ -234,14 +226,11 @@ export default class WebpackConfigure {
         }
 
         if (this._ifRelease('release', 'debug') === 'release') {
-            webpackConfig.plugins.push(new OptimizeCssAssetsPlugin())
             webpackConfig.plugins.push(
                 new CleanWebpackPlugin(config.outputDir, {
                     root: path.resolve(this._buildPath, `web/${this._buildMode}/`),
                 })
             )
-
-            webpackConfig.plugins.unshift(new HashOutput())
         } else {
             webpackConfig.devtool = 'cheap-module-eval-source-map'
             webpackConfig.plugins.push(new webpack.HotModuleReplacementPlugin())
@@ -428,15 +417,17 @@ export default class WebpackConfigure {
                     default: false,
                     common: {
                         chunks: 'all',
+                        maxSize: 200000,
                         test: /[\\/]shared[\\/]common[\\/]/,
                         name: 'common/common',
-                        priority: 2,
+                        priority: 1,
                     },
                     vendor: {
                         chunks: 'all',
+                        maxSize: 200000,
                         test: /[\\/]node_modules[\\/]|[\\/]vendor[\\/]/,
                         name: 'vendor/vendor',
-                        priority: 1,
+                        priority: 2,
                     },
                 },
             },

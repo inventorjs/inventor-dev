@@ -4,7 +4,7 @@ module.exports = function(api) {
     return {
         presets: [
             ['@babel/preset-env', {
-                targets: { node: '8.14.0' }
+                targets: { node: '12.16.0' }
             }]
         ],
         plugins: [
@@ -13,8 +13,6 @@ module.exports = function(api) {
             ['@babel/plugin-proposal-class-properties', { loose: true }],
             '@babel/plugin-proposal-export-default-from',
             '@babel/plugin-proposal-export-namespace-from',
-            '@babel/plugin-syntax-dynamic-import',
-            '@babel/plugin-proposal-function-bind',
         ]
     }
 }

@@ -9,7 +9,7 @@ import _ from 'lodash'
 export default class BabelConfigure {
     _ENVS = [ 'server', 'web' ]
 
-    _SERVER_TARGETS = { node: '10.14.0' }
+    _SERVER_TARGETS = { node: '12.16.0' }
     _WEB_TARGETS = { browsers: '> 0.1%, not ie <= 8' }
 
     _env = 'web'
@@ -35,8 +35,6 @@ export default class BabelConfigure {
             ['@babel/plugin-proposal-class-properties', { 'loose': true }],
             ['@babel/plugin-proposal-export-default-from'],
             ['@babel/plugin-proposal-export-namespace-from'],
-            ['@babel/plugin-syntax-dynamic-import'],
-            ['@babel/plugin-proposal-function-bind'],
         ]
     }
 
@@ -51,9 +49,8 @@ export default class BabelConfigure {
                 ['module-resolver', {
                     "alias": _.get(this._config, 'server.alias', {})
                 }],
-                ['css-modules-transform', {
+                ['react-css-modules', {
                     generateScopedName: '[path][name]__[local]',
-                    extensions: ['.css']
                 }],
                 ['@babel/transform-runtime', { regenerator: false }],
                 ...this._getCommonPlugins(),
