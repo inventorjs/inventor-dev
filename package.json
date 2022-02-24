@@ -1,6 +1,6 @@
 {
   "name": "inventor-dev",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "build/index.js",
   "scripts": {
@@ -8,7 +8,9 @@
     "build": "babel --delete-dir-on-start src -d build -D",
     "dev": "bash bin/dev.sh"
   },
-  "files": ["build/"],
+  "files": [
+    "build/"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/inventorjs/inventor-dev.git"
