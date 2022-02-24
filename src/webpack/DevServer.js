@@ -30,17 +30,18 @@ export default class DevServer {
 
         const compiler = webpack(webpackConfig)
         this._server = new WebpackDevServer(compiler, {
-            contentBase: '/',
             hot: true,
-            publicPath: publicPath+'/',
             historyApiFallback: true,
-            sockHost: `${localServer.host}:${localServer.port}`,
+            host: `${localServer.host}:${localServer.port}`,
             headers: {
                 'Access-Control-Allow-Origin': `http://${localServer.host}:${localServer.port}`,
                 'Access-Control-Allow-Credentials': true,
             },
-            watchOptions: {
-                ignored: /node_modules/,
+            static: {
+                publicPath: publicPath+'/',
+                watch: {
+                    ignored: /node_modules/,
+                }
             },
         })
 

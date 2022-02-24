@@ -179,7 +179,7 @@ export default class WebpackConfigure {
                         use: [
                             {
                                 loader: 'url-loader',
-                                query: {
+                                options: {
                                     limit: 1,
                                     name: 'resources/[name].[ext]?[hash]',
                                 }
@@ -232,7 +232,7 @@ export default class WebpackConfigure {
                 })
             )
         } else {
-            webpackConfig.devtool = 'cheap-module-eval-source-map'
+            webpackConfig.devtool = 'hidden-cheap-module-source-map'
             webpackConfig.plugins.push(new webpack.HotModuleReplacementPlugin())
         }
         return webpackConfig
