@@ -49,7 +49,7 @@ export default class BabelConfigure {
                 ['module-resolver', {
                     "alias": _.get(this._config, 'server.alias', {})
                 }],
-                ['react-css-modules', {
+                ['css-modules-transform', {
                     generateScopedName: '[path][name]__[local]',
                 }],
                 ['@babel/transform-runtime', { regenerator: false }],

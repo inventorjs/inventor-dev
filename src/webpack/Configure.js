@@ -7,15 +7,11 @@
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
-import _ from 'lodash'
+import _, { stubFalse } from 'lodash'
 import webpack from 'webpack'
 import HtmlWebpackPlugin from 'html-webpack-plugin'
-import CleanWebpackPlugin from 'clean-webpack-plugin'
+import { CleanWebpackPlugin } from 'clean-webpack-plugin'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
-import autoprefixer from 'autoprefixer'
-import HappyPack from 'happypack'
-
-const happyThreadPool = HappyPack.ThreadPool({ size: os.cpus().length })
 
 const allChunks = []
 
@@ -114,20 +110,9 @@ export default class WebpackConfigure {
             module: {
                 rules: [
                     {
-                        test: /package\.json$/,
-                        use: [
-                            {
-                                loader: 'package-json-cleanup-loader',
-                                options: {
-                                    only: [ 'name', 'version' ],
-                                },
-                            },
-                        ],
-                    },
-                    {
                         test: /\.jsx?$/,
                         use: [
-                            'happypack/loader?id=babel',
+                            'babel-loader',
                         ],
                         exclude: /node_modules/,
                     },
@@ -135,47 +120,32 @@ export default class WebpackConfigure {
                         test: /(\/web\/vendor|node_modules).*?\.(less|css)$/,
                         use:  [
                             MiniCssExtractPlugin.loader,
-                            'css-loader',
-                            {
-                                loader: "postcss-loader",
-                                options: {
-                                    postcssOptions: {
-                                        plugins: [
-                                            'autoprefixer',
-                                        ],
-                                    },
-                                },
-                            },
+                            { loader: 'css-loader', options: { sourceMap: false } },
+                            'postcss-loader',
                             {
                                 loader: 'less-loader',
                                 options: {
-                                    javascriptEnabled: true,
+                                    lessOptions: {
+                                        javascriptEnabled: true,
+                                    },
                                 },
                             },
                         ],
                     },
                     {
-                        test: /\/shared\/.*?\.css$/,
-                        exclude: /(web\/vendor|node_modules)/,
+                        test: /\/shared\/.*\.css$/,
                         use: [
                             MiniCssExtractPlugin.loader,
                             {
                                 loader: 'css-loader',
                                 options: {
-                                    modules: true,
-                                    localIdentName: '[path][name]__[local]',
-                                },
-                            },
-                            {
-                                loader: 'postcss-loader',
-                                options: {
-                                    postcssOptions: {
-                                        plugins: [
-                                            'autoprefixer',
-                                        ],
+                                    sourceMap: false,
+                                    modules: {
+                                        localIdentName: '[path][name]__[local]',
                                     },
                                 },
                             },
+                            'postcss-loader',
                         ],
                     },
                     {
@@ -193,12 +163,10 @@ export default class WebpackConfigure {
                 ],
             },
             plugins: [
-                new HappyPack({
-                    id: 'babel',
-                    loaders: ['babel-loader'],
-                    threadPool: happyThreadPool,
+                new MiniCssExtractPlugin({
+                    filename: this._ifRelease('[name].[contenthash].css', '[name].css'),
+                    chunkFilename: this._ifRelease('[id].[contenthash].css', '[id].css'),
                 }),
-                new MiniCssExtractPlugin(),
             ],
             resolve: {
                 extensions: [
@@ -207,6 +175,9 @@ export default class WebpackConfigure {
                     '.json',
                 ],
                 alias: _.get(config, 'alias', {}),
+                fallback: {
+                    'crypto': false,
+                },
             },
         }
 
@@ -228,13 +199,15 @@ export default class WebpackConfigure {
 
         if (this._ifRelease('release', 'debug') === 'release') {
             webpackConfig.plugins.push(
-                new CleanWebpackPlugin(config.outputDir, {
-                    root: path.resolve(this._buildPath, `web/${this._buildMode}/`),
+                new CleanWebpackPlugin({
+                    cleanOnceBeforeBuildPatterns: [
+                        config.outputDir
+                    ],
                 })
             )
-        } else {
             webpackConfig.devtool = 'hidden-cheap-module-source-map'
-            webpackConfig.plugins.push(new webpack.HotModuleReplacementPlugin())
+        } else {
+            webpackConfig.devtool = 'eval'
         }
         return webpackConfig
     }
@@ -412,27 +385,27 @@ export default class WebpackConfigure {
 
         const template = this._getTemplate(config)
 
-        template.optimization = {
-            splitChunks: {
-                cacheGroups: {
-                    default: false,
-                    common: {
-                        chunks: 'all',
-                        maxSize: 200000,
-                        test: /[\\/]shared[\\/]common[\\/]/,
-                        // name: 'common/common',
-                        priority: 1,
-                    },
-                    vendor: {
-                        chunks: 'all',
-                        maxSize: 200000,
-                        test: /[\\/]node_modules[\\/]|[\\/]vendor[\\/]/,
-                        // name: 'vendor/vendor',
-                        priority: 2,
-                    },
-                },
-            },
-        }
+        console.log(template, '---')
+
+        // template.optimization = {
+        //     splitChunks: {
+        //         cacheGroups: {
+        //             default: false,
+        //             common: {
+        //                 chunks: 'all',
+        //                 maxSize: 200000,
+        //                 test: /[\\/]shared[\\/]common[\\/]/,
+        //                 priority: 1,
+        //             },
+        //             vendor: {
+        //                 chunks: 'all',
+        //                 maxSize: 200000,
+        //                 test: /[\\/]node_modules[\\/]|[\\/]vendor[\\/]/,
+        //                 priority: 2,
+        //             },
+        //         },
+        //     },
+        // }
 
         return template
     }
