@@ -70,7 +70,7 @@ export default class BabelConfigure {
             ],
             plugins: [
                 ['module-resolver', {
-                    alias: _.get(this._config, 'w,eb.alias', {}),
+                    alias: _.get(this._config, 'web.alias', {}),
                 }],
                 ['@babel/transform-runtime'],
                 ...this._getCommonPlugins(),
