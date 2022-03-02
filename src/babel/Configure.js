@@ -70,11 +70,14 @@ export default class BabelConfigure {
             ],
             plugins: [
                 ['module-resolver', {
-                    alias: _.get(this._config, 'web.alias', {}),
+                    alias: _.get(this._config, 'w,eb.alias', {}),
                 }],
                 ['@babel/transform-runtime'],
                 ...this._getCommonPlugins(),
             ],
+        }
+        if (process.env.NODE_ENV === 'development') {
+            defaultTemplate.push([require.resolve('react-refresh/babel'), { skipEnvCheck: true }])
         }
 
         const template = this._processOverwrite(defaultTemplate, this._config.web)

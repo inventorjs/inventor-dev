@@ -18,24 +18,13 @@ export default class DevServer {
         const configure = new WebpackConfigure({ basePath, publicPath, buildMode, devServer, viewEngine })
         const webpackConfig = configure.getDevTemplate({ modules })
 
-        webpackConfig.entry = _.mapValues(webpackConfig.entry, (val, key) => {
-            const newVal = [
-                'react-hot-loader/patch',
-                'webpack-dev-server/client?http://' + localWeb.host + ':' + localWeb.port + '/',
-                'webpack/hot/only-dev-server',
-                ...val,
-            ]
-            return newVal
-        })
-
         const compiler = webpack(webpackConfig)
         this._server = new WebpackDevServer({
             hot: true,
             historyApiFallback: true,
-            port: 9099, 
+            port: localWeb.port, 
             headers: {
-                'Access-Control-Allow-Origin': `http://${localServer.host}:${localServer.port}`,
-                'Access-Control-Allow-Credentials': true,
+                'Access-Control-Allow-Origin': '*',
             },
             static: {
                 publicPath: publicPath+'/',
