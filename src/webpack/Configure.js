@@ -86,7 +86,6 @@ export default class WebpackConfigure {
                 [this._getPkg(common, 'name')]: `${this._exposeRoot}.common.${exposeName}`,
             }
         }, {})
-
         return commonExternals
     }
 
@@ -191,7 +190,9 @@ export default class WebpackConfigure {
         }
 
         if (!!config.externals) {
-            webpackConfig.externals = _.extend({}, webpackConfig.externals, config.externals)
+            webpackConfig.externals = _.isArray(config.externals)
+            ? [ ...config.externals ]
+            : { ...config.externals }
         }
 
         if (!!config.plugins) {
@@ -377,7 +378,10 @@ export default class WebpackConfigure {
                     [common.name]: common.entry,
                 }
             }, {}),
-            externals: _.extend({}, this._vendorExternals, this._commonExternals),
+            externals: [
+                this._vendorExternals,
+                this._commonExternals,
+            ],
         }
 
         const template = this._getTemplate(config)
