@@ -370,46 +370,30 @@ export default class WebpackConfigure {
 
         const config =  {
             name: 'dev',
-            entry: _.extend(
-                {},
-                this._vendorTemplate.entry,
-                this._commonTemplate.entry,
-                appEntry
-            ),
+            entry: appEntry,
             alias: _.reduce(this._moduleConfig.common.expose, (result, common, commonName) => {
                 return {
                     ...result,
                     [common.name]: common.entry,
                 }
-            }, {})
+            }, {}),
+            externals: _.extend({}, this._vendorExternals, this._commonExternals),
         }
 
         const template = this._getTemplate(config)
         template.plugins.push(
-            new webpack.HotModuleReplacementPlugin(),
             new ReactRefreshWebpackPlugin(),
         )
 
-        // template.optimization = {
-        //     splitChunks: {
-        //         cacheGroups: {
-        //             default: false,
-        //             common: {
-        //                 chunks: 'all',
-        //                 maxSize: 200000,
-        //                 test: /[\\/]shared[\\/]common[\\/]/,
-        //                 priority: 1,
-        //             },
-        //             vendor: {
-        //                 chunks: 'all',
-        //                 maxSize: 200000,
-        //                 test: /[\\/]node_modules[\\/]|[\\/]vendor[\\/]/,
-        //                 priority: 2,
-        //             },
-        //         },
-        //     },
-        // }
+        const commonTemplate = _.omit(this._commonTemplate, ['moduleName'])
+        commonTemplate.plugins.push(new ReactRefreshWebpackPlugin())
+        const vendorTemplate = _.omit(this._vendorTemplate, ['moduleName'])
+        vendorTemplate.plugins.push(new ReactRefreshWebpackPlugin())
 
-        return template
+        return [
+            template,
+            commonTemplate,
+            vendorTemplate,
+        ]
     }
 }

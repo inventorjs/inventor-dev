@@ -76,8 +76,8 @@ export default class BabelConfigure {
                 ...this._getCommonPlugins(),
             ],
         }
-        if (process.env.NODE_ENV === 'development') {
-            defaultTemplate.push([require.resolve('react-refresh/babel'), { skipEnvCheck: true }])
+        if (process.env.NODE_ENV === 'local') {
+            defaultTemplate.plugins.push([require.resolve('react-refresh/babel'), { skipEnvCheck: true }])
         }
 
         const template = this._processOverwrite(defaultTemplate, this._config.web)
