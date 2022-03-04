@@ -9,7 +9,7 @@ import _ from 'lodash'
 export default class BabelConfigure {
     _ENVS = [ 'server', 'web' ]
 
-    _SERVER_TARGETS = { node: '10.14.0' }
+    _SERVER_TARGETS = { node: '12.16.0' }
     _WEB_TARGETS = { browsers: '> 0.1%, not ie <= 8' }
 
     _env = 'web'
@@ -35,8 +35,6 @@ export default class BabelConfigure {
             ['@babel/plugin-proposal-class-properties', { 'loose': true }],
             ['@babel/plugin-proposal-export-default-from'],
             ['@babel/plugin-proposal-export-namespace-from'],
-            ['@babel/plugin-syntax-dynamic-import'],
-            ['@babel/plugin-proposal-function-bind'],
         ]
     }
 
@@ -53,7 +51,6 @@ export default class BabelConfigure {
                 }],
                 ['css-modules-transform', {
                     generateScopedName: '[path][name]__[local]',
-                    extensions: ['.css']
                 }],
                 ['@babel/transform-runtime', { regenerator: false }],
                 ...this._getCommonPlugins(),
@@ -78,6 +75,9 @@ export default class BabelConfigure {
                 ['@babel/transform-runtime'],
                 ...this._getCommonPlugins(),
             ],
+        }
+        if (process.env.NODE_ENV === 'local') {
+            defaultTemplate.plugins.push([require.resolve('react-refresh/babel'), { skipEnvCheck: true }])
         }
 
         const template = this._processOverwrite(defaultTemplate, this._config.web)

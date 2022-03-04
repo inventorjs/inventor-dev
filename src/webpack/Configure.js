@@ -7,18 +7,12 @@
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
-import _ from 'lodash'
+import _, { stubFalse } from 'lodash'
 import webpack from 'webpack'
 import HtmlWebpackPlugin from 'html-webpack-plugin'
-import OptimizeCssAssetsPlugin from 'optimize-css-assets-webpack-plugin'
-import CleanWebpackPlugin from 'clean-webpack-plugin'
-import ExtractTextPlugin from 'extract-text-webpack-plugin'
-import autoprefixer from 'autoprefixer'
-import ProgressBarPlugin from 'progress-bar-webpack-plugin'
-import HappyPack from 'happypack'
-import HashOutput from 'webpack-plugin-hash-output'
-
-const happyThreadPool = HappyPack.ThreadPool({ size: os.cpus().length })
+import { CleanWebpackPlugin } from 'clean-webpack-plugin'
+import MiniCssExtractPlugin from 'mini-css-extract-plugin'
+import ReactRefreshWebpackPlugin from '@pmmmwh/react-refresh-webpack-plugin';
 
 const allChunks = []
 
@@ -92,7 +86,6 @@ export default class WebpackConfigure {
                 [this._getPkg(common, 'name')]: `${this._exposeRoot}.common.${exposeName}`,
             }
         }, {})
-
         return commonExternals
     }
 
@@ -117,76 +110,50 @@ export default class WebpackConfigure {
             module: {
                 rules: [
                     {
-                        test: /package\.json$/,
-                        use: [
-                            {
-                                loader: 'package-json-cleanup-loader',
-                                options: {
-                                    only: [ 'name', 'version' ],
-                                },
-                            },
-                        ],
-                    },
-                    {
                         test: /\.jsx?$/,
                         use: [
-                            'happypack/loader?id=babel',
+                            'babel-loader',
                         ],
                         exclude: /node_modules/,
                     },
                     {
                         test: /(\/web\/vendor|node_modules).*?\.(less|css)$/,
-                        use: ExtractTextPlugin.extract({
-                            fallback: 'style-loader',
-                            use: [
-                                'css-loader',
-                                {
-                                    loader: 'postcss-loader',
-                                    options: {
-                                        plugins: [
-                                            autoprefixer(),
-                                        ],
-                                    },
-                                },
-                                {
-                                    loader: 'less-loader',
-                                    options: {
+                        use:  [
+                            MiniCssExtractPlugin.loader,
+                            { loader: 'css-loader', options: { sourceMap: false } },
+                            'postcss-loader',
+                            {
+                                loader: 'less-loader',
+                                options: {
+                                    lessOptions: {
                                         javascriptEnabled: true,
                                     },
                                 },
-                            ],
-                        }),
+                            },
+                        ],
                     },
                     {
-                        test: /\/shared\/.*?\.css$/,
-                        exclude: /(web\/vendor|node_modules)/,
-                        use: ExtractTextPlugin.extract({
-                            fallback: 'style-loader',
-                            use: [
-                                {
-                                    loader: 'css-loader',
-                                    options: {
-                                        modules: true,
+                        test: /\/shared\/.*\.css$/,
+                        use: [
+                            MiniCssExtractPlugin.loader,
+                            {
+                                loader: 'css-loader',
+                                options: {
+                                    sourceMap: false,
+                                    modules: {
                                         localIdentName: '[path][name]__[local]',
                                     },
                                 },
-                                {
-                                    loader: 'postcss-loader',
-                                    options: {
-                                        plugins: [
-                                            autoprefixer(),
-                                        ],
-                                    },
-                                },
-                            ],
-                        }),
+                            },
+                            'postcss-loader',
+                        ],
                     },
                     {
                         test: /\.(png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)$/,
                         use: [
                             {
                                 loader: 'url-loader',
-                                query: {
+                                options: {
                                     limit: 1,
                                     name: 'resources/[name].[ext]?[hash]',
                                 }
@@ -196,15 +163,9 @@ export default class WebpackConfigure {
                 ],
             },
             plugins: [
-                new ProgressBarPlugin(),
-                new HappyPack({
-                    id: 'babel',
-                    loaders: ['babel-loader'],
-                    threadPool: happyThreadPool,
-                }),
-                new ExtractTextPlugin({
-                    filename: this._ifRelease('[name].[md5:contenthash:hex:20].css', '[name].css'),
-                    allChunks: true,
+                new MiniCssExtractPlugin({
+                    filename: this._ifRelease('[name].[contenthash].css', '[name].css'),
+                    chunkFilename: this._ifRelease('[id].[contenthash].css', '[id].css'),
                 }),
             ],
             resolve: {
@@ -214,6 +175,9 @@ export default class WebpackConfigure {
                     '.json',
                 ],
                 alias: _.get(config, 'alias', {}),
+                fallback: {
+                    'crypto': false,
+                },
             },
         }
 
@@ -226,7 +190,9 @@ export default class WebpackConfigure {
         }
 
         if (!!config.externals) {
-            webpackConfig.externals = _.extend({}, webpackConfig.externals, config.externals)
+            webpackConfig.externals = _.isArray(config.externals)
+            ? [ ...config.externals ]
+            : { ...config.externals }
         }
 
         if (!!config.plugins) {
@@ -234,22 +200,21 @@ export default class WebpackConfigure {
         }
 
         if (this._ifRelease('release', 'debug') === 'release') {
-            webpackConfig.plugins.push(new OptimizeCssAssetsPlugin())
             webpackConfig.plugins.push(
-                new CleanWebpackPlugin(config.outputDir, {
-                    root: path.resolve(this._buildPath, `web/${this._buildMode}/`),
+                new CleanWebpackPlugin({
+                    cleanOnceBeforeBuildPatterns: [
+                        config.outputDir
+                    ],
                 })
             )
-
-            webpackConfig.plugins.unshift(new HashOutput())
+            webpackConfig.devtool = 'hidden-cheap-module-source-map'
         } else {
-            webpackConfig.devtool = 'cheap-module-eval-source-map'
-            webpackConfig.plugins.push(new webpack.HotModuleReplacementPlugin())
+            webpackConfig.devtool = 'eval'
         }
         return webpackConfig
     }
 
-    get _appTemplate() {
+    _appTemplate(isDev = false) {
         const appConfig = this._moduleConfig.app
         const appNames = _.keys(appConfig.modules)
 
@@ -258,7 +223,7 @@ export default class WebpackConfigure {
             const outputName = `${prefixApp}/index`
             const entryPath = path.resolve(this._entryDir, `entry-app-${appName}.js`)
 
-            this._createAppEntryFile(appName, entryPath)
+            this._createAppEntryFile(appName, entryPath, isDev)
 
             return {
                 entry: { [outputName]: [ entryPath ] },
@@ -282,7 +247,7 @@ export default class WebpackConfigure {
         return template
     }
 
-    get _commonTemplate() {
+    _commonTemplate() {
         const commonConfig = this._moduleConfig.common
         const outputName = `${commonConfig.ename}/common`
         const entryPath = path.resolve(this._entryDir, `entry-common.js`)
@@ -309,7 +274,7 @@ export default class WebpackConfigure {
         return template
     }
 
-    get _vendorTemplate() {
+    _vendorTemplate() {
         const vendorConfig = this._moduleConfig.vendor
         const outputName = `${vendorConfig.ename}/vendor`
         const entryPath = path.resolve(this._entryDir, 'entry-vendor.js')
@@ -343,14 +308,21 @@ export default class WebpackConfigure {
         return true
     }
 
-    _createAppEntryFile(appName, entryPath) {
+    _createAppEntryFile(appName, entryPath, isDev) {
         this._checkCreateDir(this._entryDir)
 
         const appConfig = this._moduleConfig.app
         const appPath = path.resolve(`${this._sharedPath}/${appConfig.ename}/${appName}`)
         const webPath = path.resolve(this._webPath)
 
-        const entryContent = this._viewEngine.getEntryTpl({ appPath, webPath })
+        let entryContent = this._viewEngine.getEntryTpl({ appPath, webPath })
+        if (isDev) {
+            const preloadRequire = _.get(this._moduleConfig['common'], 'preLoad', [])
+                                    .concat(_.get(this._moduleConfig['vendor'], 'preLoad', []))
+                                    .map((entry) => `import '${entry}'`)
+                                    .join('\n')
+            entryContent = preloadRequire + '\n' + entryContent
+        }
 
         fs.writeFileSync(entryPath, entryContent)
     }
@@ -376,9 +348,9 @@ export default class WebpackConfigure {
     }
 
     getTemplate({ modules }) {
-        const vendorTemplate = this._vendorTemplate
-        const commonTemplate = this._commonTemplate
-        const appTemplate = this._appTemplate
+        const vendorTemplate = this._vendorTemplate()
+        const commonTemplate = this._commonTemplate()
+        const appTemplate = this._appTemplate()
 
         let templates = [ vendorTemplate, commonTemplate ].concat(appTemplate)
 
@@ -394,7 +366,7 @@ export default class WebpackConfigure {
     }
 
     getDevTemplate({ modules }) {
-        const appEntry = _.reduce(this._appTemplate, (result, template) => {
+        const appEntry = _.reduce(this._appTemplate(true), (result, template) => {
             if (!modules.length || !!~modules.indexOf(template.moduleName)) {
                 return {
                     ...result,
@@ -406,40 +378,38 @@ export default class WebpackConfigure {
 
         const config =  {
             name: 'dev',
-            entry: _.extend(
-                {},
-                this._vendorTemplate.entry,
-                this._commonTemplate.entry,
-                appEntry
-            ),
+            entry: appEntry,
             alias: _.reduce(this._moduleConfig.common.expose, (result, common, commonName) => {
                 return {
                     ...result,
                     [common.name]: common.entry,
                 }
-            }, {})
+            }, {}),
         }
 
         const template = this._getTemplate(config)
-
+        template.plugins.push(
+            new ReactRefreshWebpackPlugin(),
+        )
         template.optimization = {
             splitChunks: {
                 cacheGroups: {
-                    default: false,
                     common: {
                         chunks: 'all',
-                        test: /[\\/]shared[\\/]common[\\/]/,
                         name: 'common/common',
-                        priority: 2,
+                        test: /[\\/]shared[\\/]common[\\/]/,
+                        priority: -20,
+                        reuseExistingChunk: true,
                     },
                     vendor: {
                         chunks: 'all',
-                        test: /[\\/]node_modules[\\/]|[\\/]vendor[\\/]/,
                         name: 'vendor/vendor',
-                        priority: 1,
+                        test: /[\\/]node_modules[\\/]|[\\/]vendor[\\/]/,
+                        priority: -10,
+                        reuseExistingChunk: true,
                     },
                 },
-            },
+            }, 
         }
 
         return template
