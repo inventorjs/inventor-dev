@@ -209,7 +209,7 @@ export default class WebpackConfigure {
             )
             webpackConfig.devtool = 'hidden-cheap-module-source-map'
         } else {
-            webpackConfig.devtool = 'eval'
+            webpackConfig.devtool = 'eval-cheap-module-source-map'
         }
         return webpackConfig
     }
