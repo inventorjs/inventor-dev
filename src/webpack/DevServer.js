@@ -21,7 +21,6 @@ export default class DevServer {
         const compiler = webpack(webpackConfig)
         this._server = new WebpackDevServer({
             hot: true,
-            historyApiFallback: true,
             port: localWeb.port, 
             headers: {
                 'Access-Control-Allow-Origin': '*',
@@ -41,6 +40,6 @@ export default class DevServer {
         if (!this._serverConfig || !this._serverConfig.port || !this._serverConfig.host) {
             throw new Error('devServer "serverConfig" must have valid host and port')
         }
-        this._server.start(this._serverConfig.port)
+        this._server.start()
     }
 }

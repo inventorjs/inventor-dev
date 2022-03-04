@@ -214,7 +214,7 @@ export default class WebpackConfigure {
         return webpackConfig
     }
 
-    get _appTemplate() {
+    _appTemplate(isDev = false) {
         const appConfig = this._moduleConfig.app
         const appNames = _.keys(appConfig.modules)
 
@@ -223,7 +223,7 @@ export default class WebpackConfigure {
             const outputName = `${prefixApp}/index`
             const entryPath = path.resolve(this._entryDir, `entry-app-${appName}.js`)
 
-            this._createAppEntryFile(appName, entryPath)
+            this._createAppEntryFile(appName, entryPath, isDev)
 
             return {
                 entry: { [outputName]: [ entryPath ] },
@@ -247,7 +247,7 @@ export default class WebpackConfigure {
         return template
     }
 
-    get _commonTemplate() {
+    _commonTemplate() {
         const commonConfig = this._moduleConfig.common
         const outputName = `${commonConfig.ename}/common`
         const entryPath = path.resolve(this._entryDir, `entry-common.js`)
@@ -274,7 +274,7 @@ export default class WebpackConfigure {
         return template
     }
 
-    get _vendorTemplate() {
+    _vendorTemplate() {
         const vendorConfig = this._moduleConfig.vendor
         const outputName = `${vendorConfig.ename}/vendor`
         const entryPath = path.resolve(this._entryDir, 'entry-vendor.js')
@@ -308,14 +308,21 @@ export default class WebpackConfigure {
         return true
     }
 
-    _createAppEntryFile(appName, entryPath) {
+    _createAppEntryFile(appName, entryPath, isDev) {
         this._checkCreateDir(this._entryDir)
 
         const appConfig = this._moduleConfig.app
         const appPath = path.resolve(`${this._sharedPath}/${appConfig.ename}/${appName}`)
         const webPath = path.resolve(this._webPath)
 
-        const entryContent = this._viewEngine.getEntryTpl({ appPath, webPath })
+        let entryContent = this._viewEngine.getEntryTpl({ appPath, webPath })
+        if (isDev) {
+            const preloadRequire = _.get(this._moduleConfig['common'], 'preLoad', [])
+                                    .concat(_.get(this._moduleConfig['vendor'], 'preLoad', []))
+                                    .map((entry) => `import '${entry}'`)
+                                    .join('\n')
+            entryContent = preloadRequire + '\n' + entryContent
+        }
 
         fs.writeFileSync(entryPath, entryContent)
     }
@@ -341,9 +348,9 @@ export default class WebpackConfigure {
     }
 
     getTemplate({ modules }) {
-        const vendorTemplate = this._vendorTemplate
-        const commonTemplate = this._commonTemplate
-        const appTemplate = this._appTemplate
+        const vendorTemplate = this._vendorTemplate()
+        const commonTemplate = this._commonTemplate()
+        const appTemplate = this._appTemplate()
 
         let templates = [ vendorTemplate, commonTemplate ].concat(appTemplate)
 
@@ -359,7 +366,7 @@ export default class WebpackConfigure {
     }
 
     getDevTemplate({ modules }) {
-        const appEntry = _.reduce(this._appTemplate, (result, template) => {
+        const appEntry = _.reduce(this._appTemplate(true), (result, template) => {
             if (!modules.length || !!~modules.indexOf(template.moduleName)) {
                 return {
                     ...result,
@@ -378,26 +385,33 @@ export default class WebpackConfigure {
                     [common.name]: common.entry,
                 }
             }, {}),
-            externals: [
-                this._vendorExternals,
-                this._commonExternals,
-            ],
         }
 
         const template = this._getTemplate(config)
         template.plugins.push(
             new ReactRefreshWebpackPlugin(),
         )
+        template.optimization = {
+            splitChunks: {
+                cacheGroups: {
+                    common: {
+                        chunks: 'all',
+                        name: 'common/common',
+                        test: /[\\/]shared[\\/]common[\\/]/,
+                        priority: -20,
+                        reuseExistingChunk: true,
+                    },
+                    vendor: {
+                        chunks: 'all',
+                        name: 'vendor/vendor',
+                        test: /[\\/]node_modules[\\/]|[\\/]vendor[\\/]/,
+                        priority: -10,
+                        reuseExistingChunk: true,
+                    },
+                },
+            }, 
+        }
 
-        const commonTemplate = _.omit(this._commonTemplate, ['moduleName'])
-        commonTemplate.plugins.push(new ReactRefreshWebpackPlugin())
-        const vendorTemplate = _.omit(this._vendorTemplate, ['moduleName'])
-        vendorTemplate.plugins.push(new ReactRefreshWebpackPlugin())
-
-        return [
-            template,
-            commonTemplate,
-            vendorTemplate,
-        ]
+        return template
     }
 }
