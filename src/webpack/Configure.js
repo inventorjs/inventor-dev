@@ -127,6 +127,7 @@ export default class WebpackConfigure {
                                 options: {
                                     lessOptions: {
                                         javascriptEnabled: true,
+                                        math: 'always',
                                     },
                                 },
                             },
