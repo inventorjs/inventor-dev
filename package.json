@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "babel --delete-dir-on-start src -d build -D",
-    "dev": "bash bin/dev.sh"
+    "dev": "bash bin/dev.sh",
+    "prepublish": "yarn build"
   },
   "files": [
     "build/"
